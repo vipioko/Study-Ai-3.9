@@ -84,7 +84,6 @@ const QuizManagement = () => {
       }];
 
       const result = await generateQuestions(analysisResults, quizForm.difficulty, quizForm.language);
-      const result = await generateQuestions(analysisResults, "medium", quizForm.language);
       
       setGeneratedQuestions(result.questions || []);
       setQuizForm(prev => ({
