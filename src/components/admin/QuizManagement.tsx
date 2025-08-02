@@ -38,7 +38,7 @@ const QuizManagement = () => {
     title: "",
     description: "",
     questionBankId: "",
-    language: "english" as const
+    language: "english"
   });
 
   useEffect(() => {
@@ -243,7 +243,7 @@ const QuizManagement = () => {
           
           <div className="space-y-2">
             <Label>Language</Label>
-            <Select value={quizForm.language} onValueChange={(value: any) => setQuizForm(prev => ({ ...prev, language: value }))}>
+            <Select value={quizForm.language} onValueChange={(value: 'english' | 'tamil') => setQuizForm(prev => ({ ...prev, language: value }))}>
               <SelectTrigger className="input-elegant">
                 <SelectValue />
               </SelectTrigger>
