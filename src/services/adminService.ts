@@ -111,7 +111,7 @@ export const uploadQuestionBankFile = async (
   }
 };
 
-export const addQuestionBank = async (bank: Omit<QuestionBank, 'id' | 'uploadDate'>): Promise<string> => {
+export const addQuestionBank = async (bank: Omit<QuestionBank, 'id' | 'uploadDate'> & { fullOcrText?: string }): Promise<string> => {
   try {
     const docRef = await addDoc(collection(db, "questionBanks"), {
       ...bank,

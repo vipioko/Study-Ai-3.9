@@ -25,6 +25,7 @@ export interface QuestionBank {
   uploadDate: Timestamp;
   isActive: boolean;
   totalPages?: number;
+  fullOcrText?: string;
   analysisData?: {
     keyPoints: string[];
     summary: string;

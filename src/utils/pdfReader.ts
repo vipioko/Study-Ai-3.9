@@ -95,3 +95,15 @@ export const extractAllPdfText = async (file: File): Promise<string> => {
     return '';
   }
 };
+
+export const extractTextFromImage = async (file: File): Promise<string> => {
+  try {
+    // For images, we'll use a simple approach since we don't have OCR capability
+    // In a real implementation, you would use an OCR service like Google Vision API
+    // For now, we'll return a placeholder that indicates this is image content
+    return `==Start of OCR for page 1==\n[Image content - OCR text would be extracted here]\n==End of OCR for page 1==\n\n`;
+  } catch (error) {
+    console.error('Error extracting text from image:', error);
+    return '';
+  }
+};

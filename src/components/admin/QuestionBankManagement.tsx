@@ -20,7 +20,7 @@ import {
   deleteQuestionBank 
 } from "@/services/adminService";
 import { analyzePdfContent, analyzeImage } from "@/services/geminiService";
-import { extractAllPdfText } from "@/utils/pdfReader";
+import { extractAllPdfText, extractTextFromImage } from "@/utils/pdfReader";
 import { toast } from "sonner";
 
 const QuestionBankManagement = () => {
@@ -98,17 +98,25 @@ const QuestionBankManagement = () => {
 
       let fileData = null;
       let analysisData = null;
+      let fullOcrText = null;
 
       if (selectedFile) {
         // Upload file
         setUploadProgress(30);
         fileData = await uploadQuestionBankFile(selectedFile, user.uid);
         
-        // Analyze content with AI
-        setUploadProgress(60);
+        // Extract full OCR text
+        setUploadProgress(50);
         if (selectedFile.type === 'application/pdf') {
-          const textContent = await extractAllPdfText(selectedFile);
-          analysisData = await analyzePdfContent(textContent, 'english');
+          fullOcrText = await extractAllPdfText(selectedFile);
+        } else {
+          fullOcrText = await extractTextFromImage(selectedFile);
+        }
+        
+        // Analyze content with AI
+        setUploadProgress(70);
+        if (selectedFile.type === 'application/pdf') {
+          analysisData = await analyzePdfContent(fullOcrText, 'english');
         } else {
           analysisData = await analyzeImage(selectedFile, 'english');
         }
@@ -130,6 +138,7 @@ const QuestionBankManagement = () => {
           updates.fileHash = fileData.fileHash;
           updates.fileSize = fileData.fileSize;
           updates.fileType = selectedFile!.type === 'application/pdf' ? 'pdf' : 'image';
+          updates.fullOcrText = fullOcrText;
           updates.analysisData = analysisData;
         }
 
@@ -149,6 +158,7 @@ const QuestionBankManagement = () => {
           fileType: selectedFile!.type === 'application/pdf' ? 'pdf' : 'image',
           uploadedBy: user.uid,
           isActive: true,
+          fullOcrText: fullOcrText,
           analysisData
         });
         toast.success("Question bank added successfully!");
