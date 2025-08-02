@@ -34,11 +34,17 @@ const QuizManagement = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
+  
+  // Note: The original code had a potential issue where `difficulty` was not in the quizForm state.
+  // I've added it to avoid potential errors in handleGenerateQuiz if it's needed there.
+  // If not, it can be removed. Based on the code, it seems you want a default 'medium' for new quizzes,
+  // so this state might not be strictly necessary for the form itself.
   const [quizForm, setQuizForm] = useState({
     title: "",
     description: "",
     questionBankId: "",
-    language: "english"
+    language: "english",
+    difficulty: "medium" // Default difficulty
   });
 
   useEffect(() => {
@@ -155,10 +161,13 @@ const QuizManagement = () => {
       title: quiz.title,
       description: quiz.description || "",
       questionBankId: quiz.questionBankId,
-      language: quiz.language
+      language: quiz.language,
+      difficulty: quiz.difficulty
     });
     setGeneratedQuestions(quiz.questions);
     setIsEditing(true);
+    // Scroll to the top to see the editor
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteQuiz = async (id: string, title: string) => {
@@ -178,7 +187,8 @@ const QuizManagement = () => {
       title: "",
       description: "",
       questionBankId: "",
-      language: "english"
+      language: "english",
+      difficulty: "medium"
     });
     setGeneratedQuestions([]);
     setIsEditing(false);
@@ -223,11 +233,19 @@ const QuizManagement = () => {
     <div className="space-y-6">
       {/* Quiz Generation */}
       <Card className="glass-card p-6">
-        <h3 className="text-lg font-semibold gradient-text mb-4">Generate New Quiz</h3>
+        <h3 className="text-lg font-semibold gradient-text mb-4">
+          {isEditing ? 'Edit Quiz' : 'Generate New Quiz'}
+        </h3>
         
+        {/* FIX: Wrapped the form controls in a grid layout to fix alignment and the stray </div> error */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div className="space-y-2">
             <Label>Question Bank</Label>
-            <Select value={quizForm.questionBankId} onValueChange={(value) => setQuizForm(prev => ({ ...prev, questionBankId: value }))}>
+            <Select 
+              value={quizForm.questionBankId} 
+              onValueChange={(value) => setQuizForm(prev => ({ ...prev, questionBankId: value }))}
+              disabled={isEditing} // Prevent changing the source when editing
+            >
               <SelectTrigger className="input-elegant">
                 <SelectValue placeholder="Select question bank" />
               </SelectTrigger>
@@ -257,7 +275,7 @@ const QuizManagement = () => {
           <div className="flex items-end">
             <Button
               onClick={() => handleGenerateQuiz(quizForm.questionBankId)}
-              disabled={!quizForm.questionBankId || isGenerating}
+              disabled={!quizForm.questionBankId || isGenerating || isEditing}
               className="btn-primary w-full"
             >
               {isGenerating ? (
@@ -277,15 +295,15 @@ const QuizManagement = () => {
 
         {/* Generated Questions Editor */}
         {generatedQuestions.length > 0 && (
-          <div className="space-y-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
+          <div className="space-y-6 mt-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
             <div className="flex items-center justify-between">
               <h4 className="text-lg font-semibold text-gray-800">
-                Generated Questions ({generatedQuestions.length})
+                {isEditing ? 'Editing Questions' : 'Generated Questions'} ({generatedQuestions.length})
               </h4>
               <div className="flex gap-3">
                 <Button onClick={handleSaveQuiz} className="btn-primary">
                   <Save className="h-4 w-4 mr-2" />
-                  Save Quiz
+                  {isEditing ? 'Update Quiz' : 'Save Quiz'}
                 </Button>
                 <Button onClick={resetQuizForm} variant="outline">
                   <X className="h-4 w-4 mr-2" />
@@ -319,9 +337,9 @@ const QuizManagement = () => {
             </div>
 
             {/* Questions Editor */}
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            <div className="space-y-4 max-h-[500px] overflow-y-auto p-2">
               {generatedQuestions.map((question, index) => (
-                <Card key={index} className="p-4">
+                <Card key={index} className="p-4 bg-white">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge className="bg-blue-100 text-blue-700">Q{index + 1}</Badge>
@@ -416,10 +434,10 @@ const QuizManagement = () => {
         ) : (
           <div className="space-y-4">
             {quizzes.map((quiz, index) => (
-              <Card key={quiz.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.1}s`}}>
+              <Card key={quiz.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.05}s`}}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <Brain className="h-5 w-5 text-purple-600" />
                       <h4 className="font-semibold text-gray-800">{quiz.title}</h4>
                       <Badge className={`${
@@ -437,7 +455,7 @@ const QuizManagement = () => {
                     
                     <div className="space-y-2">
                       <p className="text-sm text-gray-600">{quiz.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                         <span>Questions: {quiz.totalQuestions}</span>
                         <span>•</span>
                         <span>Category: {getCategoryName(quiz.categoryId)}</span>
