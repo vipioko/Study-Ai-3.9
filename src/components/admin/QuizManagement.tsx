@@ -38,7 +38,6 @@ const QuizManagement = () => {
     title: "",
     description: "",
     questionBankId: "",
-    difficulty: "medium" as const,
     language: "english" as const
   });
 
@@ -85,12 +84,13 @@ const QuizManagement = () => {
       }];
 
       const result = await generateQuestions(analysisResults, quizForm.difficulty, quizForm.language);
+      const result = await generateQuestions(analysisResults, "medium", quizForm.language);
       
       setGeneratedQuestions(result.questions || []);
       setQuizForm(prev => ({
         ...prev,
         questionBankId,
-        title: `${questionBank.title} - ${quizForm.difficulty.toUpperCase()} Quiz`
+        title: `${questionBank.title} - Quiz`
       }));
       
       toast.success(`Generated ${result.questions?.length || 0} questions!`);
@@ -119,7 +119,7 @@ const QuizManagement = () => {
         await updateQuiz(editingQuiz.id, {
           title: quizForm.title.trim(),
           description: quizForm.description.trim(),
-          difficulty: quizForm.difficulty,
+          difficulty: editingQuiz.difficulty, // Keep original difficulty when editing
           language: quizForm.language,
           questions: generatedQuestions,
           totalQuestions: generatedQuestions.length
@@ -131,7 +131,7 @@ const QuizManagement = () => {
           description: quizForm.description.trim(),
           questionBankId: quizForm.questionBankId,
           categoryId: questionBank.categoryId,
-          difficulty: quizForm.difficulty,
+          difficulty: "medium", // Default difficulty for new quizzes
           language: quizForm.language,
           questions: generatedQuestions,
           totalQuestions: generatedQuestions.length,
@@ -156,7 +156,6 @@ const QuizManagement = () => {
       title: quiz.title,
       description: quiz.description || "",
       questionBankId: quiz.questionBankId,
-      difficulty: quiz.difficulty,
       language: quiz.language
     });
     setGeneratedQuestions(quiz.questions);
@@ -180,7 +179,6 @@ const QuizManagement = () => {
       title: "",
       description: "",
       questionBankId: "",
-      difficulty: "medium",
       language: "english"
     });
     setGeneratedQuestions([]);
@@ -228,7 +226,6 @@ const QuizManagement = () => {
       <Card className="glass-card p-6">
         <h3 className="text-lg font-semibold gradient-text mb-4">Generate New Quiz</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="space-y-2">
             <Label>Question Bank</Label>
             <Select value={quizForm.questionBankId} onValueChange={(value) => setQuizForm(prev => ({ ...prev, questionBankId: value }))}>
@@ -241,21 +238,6 @@ const QuizManagement = () => {
                     {bank.title} ({bank.year})
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Difficulty</Label>
-            <Select value={quizForm.difficulty} onValueChange={(value: any) => setQuizForm(prev => ({ ...prev, difficulty: value }))}>
-              <SelectTrigger className="input-elegant">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="easy">🟢 Easy</SelectItem>
-                <SelectItem value="medium">🟡 Medium</SelectItem>
-                <SelectItem value="hard">🔴 Hard</SelectItem>
-                <SelectItem value="very-hard">⚫ Very Hard</SelectItem>
               </SelectContent>
             </Select>
           </div>
