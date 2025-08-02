@@ -118,9 +118,116 @@ MEMORY TIP GUIDELINES:
 export const generateQuestions = async (
   analysisResults: AnalysisResult[],
   difficulty: string = "medium",
-  outputLanguage: "english" | "tamil" = "english"
+  outputLanguage: "english" | "tamil" = "english",
+  fullOcrText?: string
 ): Promise<QuestionResult> => {
   try {
+    // If fullOcrText is provided, use the new extraction prompt
+    if (fullOcrText) {
+      const languageInstruction = outputLanguage === "tamil" 
+        ? "Extract questions in Tamil language format."
+        : "Extract questions in English language format.";
+
+      const prompt = `### TASK
+You are a highly accurate data extraction bot. Your job is to parse the provided text, which contains questions from a test paper, and convert it into a structured quiz format.
+
+### CONTEXT
+The text contains a series of multiple-choice questions. Each question is numbered and appears in two languages: English first, then Tamil. The correct answer is indicated by a checkmark (✓) next to the option.
+
+### INSTRUCTIONS
+1. Process the text sequentially.
+2. For each numbered question, extract the following components:
+   - The full English question text.
+   - All four English options (A, B, C, D).
+   - The full Tamil question text.
+   - All four Tamil options.
+   - The correct answer, as indicated by the checkmark.
+3. Preserve the original wording and numbering exactly.
+4. Return the result as a JSON array with this exact format:
+
+[
+  {
+    "question": "The body that elects the Indian President is",
+    "options": ["Parliament", "Judiciary", "Electoral College", "Legislative assembly"],
+    "answer": "C",
+    "type": "mcq",
+    "difficulty": "${difficulty}",
+    "tnpscGroup": "Group 1",
+    "explanation": "The Electoral College elects the Indian President",
+    "tamilQuestion": "இந்திய ஜனாதிபதியை தேர்தெடுக்கும் அமைப்பு",
+    "tamilOptions": ["பாராளுமன்றம்", "நீதித்துறை", "தேர்வர் குழு", "சட்டமன்றம்"]
+  }
+]
+
+CRITICAL: Extract ALL questions found in the text. If there are 50 questions, return 50 questions. Do not limit or summarize.
+
+### TEXT TO PROCESS
+"""
+${fullOcrText}
+"""`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.1, // Lower temperature for more accurate extraction
+            maxOutputTokens: 8000, // Increased for more questions
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (!content) {
+        throw new Error('No content received from Gemini API');
+      }
+
+      console.log('Raw questions extraction response:', content);
+
+      // Clean and parse the JSON response
+      const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      const questions = JSON.parse(cleanedContent);
+      
+      // Format questions for consistency
+      const formattedQuestions = questions.map((q: any) => ({
+        question: q.question,
+        options: q.options || [],
+        answer: q.answer,
+        type: "mcq",
+        difficulty: q.difficulty || difficulty,
+        tnpscGroup: q.tnpscGroup || "Group 1",
+        explanation: q.explanation || "",
+        tamilQuestion: q.tamilQuestion || "",
+        tamilOptions: q.tamilOptions || []
+      }));
+
+      return {
+        questions: formattedQuestions,
+        summary: `Extracted ${formattedQuestions.length} questions from question paper`,
+        keyPoints: [],
+        difficulty,
+        totalQuestions: formattedQuestions.length
+      };
+    }
+
+    // Fallback to original method if no fullOcrText is provided
     const combinedContent = analysisResults.map(result => ({
       keyPoints: result.keyPoints.join('\n'),
       summary: result.summary,
@@ -669,7 +776,7 @@ Please provide detailed analysis in JSON format:
       "description": "Detailed description",
       "importance": "high/medium/low",
       "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns that make this information stick in memory permanently"
-  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
+    }
   ],
   "summary": "Brief summary of the page content",
   "tnpscRelevance": "How this content relates to TNPSC exams"

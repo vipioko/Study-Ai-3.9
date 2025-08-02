@@ -81,24 +81,36 @@ const QuizManagement = () => {
         return;
       }
 
-      const analysisResults = [{
-        keyPoints: questionBank.analysisData.keyPoints || [],
-        summary: questionBank.analysisData.summary || '',
-        tnpscRelevance: questionBank.analysisData.tnpscRelevance || '',
-        studyPoints: questionBank.analysisData.studyPoints || [],
-        tnpscCategories: questionBank.analysisData.tnpscCategories || []
-      }];
+      // Check if we have full OCR text for exact question extraction
+      if (questionBank.fullOcrText) {
+        // Use the new extraction method with full OCR text
+        const result = await generateQuestions([], "medium", quizForm.language, questionBank.fullOcrText);
+        setGeneratedQuestions(result.questions || []);
+        toast.success(`Extracted ${result.questions?.length || 0} questions from the question paper!`);
+      } else if (questionBank.analysisData) {
+        // Fallback to analysis-based generation for older question banks
+        const analysisResults = [{
+          keyPoints: questionBank.analysisData.keyPoints || [],
+          summary: questionBank.analysisData.summary || '',
+          tnpscRelevance: questionBank.analysisData.tnpscRelevance || '',
+          studyPoints: questionBank.analysisData.studyPoints || [],
+          tnpscCategories: questionBank.analysisData.tnpscCategories || []
+        }];
 
-      const result = await generateQuestions(analysisResults, quizForm.difficulty, quizForm.language);
+        const result = await generateQuestions(analysisResults, "medium", quizForm.language);
+        setGeneratedQuestions(result.questions || []);
+        toast.success(`Generated ${result.questions?.length || 0} questions from analysis data!`);
+      } else {
+        toast.error("Question bank has no content data available for quiz generation");
+        return;
+      }
       
-      setGeneratedQuestions(result.questions || []);
       setQuizForm(prev => ({
         ...prev,
         questionBankId,
         title: `${questionBank.title} - Quiz`
       }));
       
-      toast.success(`Generated ${result.questions?.length || 0} questions!`);
     } catch (error) {
       console.error("Error generating quiz:", error);
       toast.error("Failed to generate quiz");
