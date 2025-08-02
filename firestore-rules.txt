@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -13,27 +12,24 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Categories - read for all authenticated users, write for admins
+    // Categories - allow all authenticated users to read and write
     match /categories/{categoryId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null; // In production, add admin check
+      allow read, write, create, update, delete: if request.auth != null;
     }
     
-    // Question Banks - read for all authenticated users, write for admins
+    // Question Banks - allow all authenticated users to read and write
     match /questionBanks/{bankId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null; // In production, add admin check
+      allow read, write, create, update, delete: if request.auth != null;
     }
     
-    // Quizzes - read for all authenticated users, write for admins
+    // Quizzes - allow all authenticated users to read and write
     match /quizzes/{quizId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null; // In production, add admin check
+      allow read, write, create, update, delete: if request.auth != null;
     }
     
-    // Deny all other access
+    // Allow other documents for authenticated users (fallback)
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null;
     }
   }
 }
