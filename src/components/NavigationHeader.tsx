@@ -2,40 +2,43 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Menu, X, User, LogOut, History, Settings, Brain, MessageCircle, Clock } from "lucide-react";
+import { Shield, BookOpen } from "lucide-react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { signOut } from "firebase/auth";
 import { auth } from "@/config/firebase";
 import { toast } from "sonner";
 import AuthModal from "./AuthModal";
 import { useAppContext } from "@/contexts/AppContext";
+import { useLocation, useNavigate } from "react-router-dom";
 
-interface NavigationHeaderProps {
-  currentView: string;
-  onViewChange: (view: string) => void;
-}
-
-const NavigationHeader = ({ currentView, onViewChange }: NavigationHeaderProps) => {
+const NavigationHeader = () => {
   const [user, loading] = useAuthState(auth);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { activeSessionType, timeRemaining, isSessionActive } = useAppContext();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  const currentPath = location.pathname;
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast.success("Logged out successfully");
-      onViewChange("study");
+      navigate("/");
     } catch (error) {
       toast.error("Failed to logout");
     }
   };
 
   const navItems = [
-    { id: "study", label: "Study Assistant", icon: Brain },
-    { id: "study-sessions", label: "Study Sessions", icon: Clock },
-    { id: "arivu", label: "Arivu Chat", icon: MessageCircle },
-    { id: "history", label: "Study History", icon: History },
-    { id: "profile", label: "Profile", icon: Settings },
+    { path: "/study", label: "Study Assistant", icon: Brain },
+    { path: "/study-sessions", label: "Study Sessions", icon: Clock },
+    { path: "/library", label: "Library", icon: BookOpen },
+    { path: "/arivu", label: "Arivu Chat", icon: MessageCircle },
+    { path: "/history", label: "Study History", icon: History },
+    { path: "/admin", label: "Admin", icon: Shield },
+    { path: "/profile", label: "Profile", icon: Settings },
   ];
 
   return (
@@ -59,11 +62,11 @@ const NavigationHeader = ({ currentView, onViewChange }: NavigationHeaderProps) 
             <nav className="hidden md:flex items-center gap-2 lg:gap-4">
               {navItems.map((item) => (
                 <Button
-                  key={item.id}
-                  variant={currentView === item.id ? "default" : "ghost"}
-                  onClick={() => onViewChange(item.id)}
+                  key={item.path}
+                  variant={currentPath === item.path ? "default" : "ghost"}
+                  onClick={() => navigate(item.path)}
                   className={`flex items-center gap-2 px-2 lg:px-3 py-2 rounded-lg transition-all duration-300 ${
-                    currentView === item.id
+                    currentPath === item.path
                       ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-md transform scale-105"
                       : "text-gray-700 hover:text-blue-600 hover:bg-blue-50 hover:shadow-sm hover:scale-102"
                   }`}
@@ -148,14 +151,14 @@ const NavigationHeader = ({ currentView, onViewChange }: NavigationHeaderProps) 
               <div className="space-y-2 px-2">
                 {navItems.map((item) => (
                   <Button
-                    key={item.id}
+                    key={item.path}
                     variant="ghost"
                     onClick={() => {
-                      onViewChange(item.id);
+                      navigate(item.path);
                       setIsMobileMenuOpen(false);
                     }}
                     className={`w-full justify-start flex items-center gap-3 px-4 py-3 rounded-xl ${
-                      currentView === item.id
+                      currentPath === item.path
                         ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg transform scale-102"
                         : "text-gray-700 hover:text-blue-600 hover:bg-blue-50 hover:shadow-sm"
                     } transition-all duration-300`}
