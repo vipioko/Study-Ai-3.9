@@ -31,7 +31,7 @@ export interface QuestionBank {
   fileName: string;
   fileHash: string;
   fileSize: number;
-  fileType: 'pdf' | 'image';
+  fileType: 'pdf' | 'image' | 'json'; // MODIFIED: Added 'json'
   uploadedBy: string;
   uploadDate: Timestamp;
   isActive: boolean;
