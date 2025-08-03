@@ -6,7 +6,7 @@ import { Question } from "@/types/admin";
  * Parses OCR text from a question paper. This version is more robust
  * against common OCR formatting errors.
  */
-export const parseQuestionPaperOcr = (ocrText: string): Question[] => {
+export const parseQuestionPaperOcr = async (ocrText: string): Promise<Question[]> => {
   try {
     const questionBlocks = splitIntoQuestionBlocks(ocrText);
     const questions: Question[] = [];

@@ -157,7 +157,7 @@ export const generateQuestions = async (
     if (fullOcrText) {
       // STEP 1: PURE EXTRACTION
       console.log("Starting Step 1: Extracting questions from OCR text...");
-      const extractedQuestions = await parseQuestionPaperOcr(fullOcrText, GEMINI_API_KEY);
+      const extractedQuestions = await parseQuestionPaperOcr(fullOcrText);
       console.log(`Extraction complete. Found ${extractedQuestions.length} questions.`);
 
       if (!extractedQuestions || extractedQuestions.length === 0) {
