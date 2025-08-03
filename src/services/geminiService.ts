@@ -178,7 +178,7 @@ export const generateQuestions = async (
       let questionsForEnrichment: Partial<Question>[] = [];
 
       console.log("Attempting Step 1A: Deterministic OCR Parsing...");
-      const deterministicQuestions = parseQuestionPaperOcr(fullOcrText);
+      const deterministicQuestions = parseQuestionPaperOcr(fullOcrText ?? '');
       
       if (deterministicQuestions.length > 0) {
         console.log(`Success! Deterministic parser found ${deterministicQuestions.length} questions.`);
