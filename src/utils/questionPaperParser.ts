@@ -117,22 +117,26 @@ function parseQuestionBlock(block: string): Question | null {
  */
 function findOptions(block: string, regex: RegExp): { options: string[], firstOptionIndex: number } {
   const options: string[] = [];
-  let match;
+  const matches: RegExpExecArray[] = [];
   let firstOptionIndex = block.length;
 
+  // First, collect all matches
+  let match;
   while ((match = regex.exec(block)) !== null) {
+    matches.push(match);
     if (match.index < firstOptionIndex) {
       firstOptionIndex = match.index;
     }
-    // Find the text for this option
-    const nextOptionMatch = regex.exec(block);
-    const endOfOption = nextOptionMatch ? nextOptionMatch.index : block.length;
-    
-    // Reset regex index for next iteration
-    regex.lastIndex = match.index + 1;
+  }
 
+  // Then process each match to extract option text
+  for (let i = 0; i < matches.length; i++) {
+    const currentMatch = matches[i];
+    const nextMatch = i + 1 < matches.length ? matches[i + 1] : null;
+    const endOfOption = nextMatch ? nextMatch.index : block.length;
+    
     let optionText = block.substring(match.index, endOfOption)
-      .replace(match[0], '') // Remove the option marker (e.g., "A)")
+      .replace(currentMatch[0], '') // Remove the option marker (e.g., "A)")
       .replace(/[\n\r]/g, ' ') // Replace newlines with spaces
       .trim();
 
