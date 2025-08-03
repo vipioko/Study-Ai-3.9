@@ -138,6 +138,7 @@ const QuizManagement = () => {
       }
       
       // Store the OCR text for debugging download
+      console.log("OCR Text to be set:", ocrTextToProcess);
       setLastOcrText(ocrTextToProcess);
       
       // --- PROCEED WITH QUIZ GENERATION ---
