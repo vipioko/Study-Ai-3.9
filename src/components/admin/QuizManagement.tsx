@@ -343,107 +343,69 @@ const QuizManagement = () => {
                         {question.difficulty.toUpperCase()}
                       </Badge>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label>Question</Label>
-                      <Textarea
-                        value={question.question}
-                        onChange={(e) => updateQuestion(index, 'question', e.target.value)}
-                        className="input-elegant min-h-[60px]"
-                      />
-                    </div>
+// In src/components/admin/QuizManagement.tsx
 
-                    {question.tamilQuestion && (
-                      <div className="space-y-2">
-                        <Label>Tamil Question</Label>
-                        <Textarea
-                          value={question.tamilQuestion}
-                          onChange={(e) => updateQuestion(index, 'tamilQuestion', e.target.value)}
-                          className="input-elegant min-h-[60px]"
-                          placeholder="Tamil question text..."
-                        />
-                      </div>
-                    )}
+// ... inside the .map for generatedQuestions ...
+<div className="space-y-2">
+  <Label>Question</Label>
+  <Textarea
+    value={question.question || ''} // FIX HERE
+    onChange={(e) => updateQuestion(index, 'question', e.target.value)}
+    className="input-elegant min-h-[60px]"
+  />
+</div>
 
-                    {question.options && (
-                      <div className="space-y-2">
-                        <Label>Options</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {question.options?.map((option, optIndex) => (
-                            <div key={optIndex} className="flex items-center gap-2">
-                              <span className="font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded text-sm">
-                                {String.fromCharCode(65 + optIndex)}
-                              </span>
-                              <Input
-                                value={option}
-                                onChange={(e) => updateQuestionOption(index, optIndex, e.target.value)}
-                                className="input-elegant"
-                              />
-                            </div>
-                          )) || []}
-                        </div>
-                      </div>
-                    )}
+{question.tamilQuestion && (
+  <div className="space-y-2">
+    <Label>Tamil Question</Label>
+    <Textarea
+      value={question.tamilQuestion || ''} // FIX HERE
+      onChange={(e) => updateQuestion(index, 'tamilQuestion', e.target.value)}
+      className="input-elegant min-h-[60px]"
+      placeholder="Tamil question text..."
+    />
+  </div>
+)}
 
-                    {question.tamilOptions && question.tamilOptions?.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Tamil Options</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {question.tamilOptions?.map((option, optIndex) => {
-                            const tamilLetter = ['அ', 'ஆ', 'இ', 'ஈ'][optIndex] || `${optIndex + 1}`;
-                            return (
-                              <div key={optIndex} className="flex items-center gap-2">
-                                <span className="font-bold text-purple-600 bg-purple-100 px-2 py-1 rounded text-sm">
-                                  {tamilLetter}
-                                </span>
-                                <Input
-                                  value={option}
-                                  onChange={(e) => {
-                                    setGeneratedQuestions(prev => prev.map((q, i) => 
-                                      i === index ? {
-                                        ...q,
-                                        tamilOptions: q.tamilOptions?.map((opt, oi) => oi === optIndex ? e.target.value : opt) || []
-                                      } : q
-                                    ));
-                                  }}
-                                  className="input-elegant"
-                                  placeholder="Tamil option text..."
-                                />
-                              </div>
-                            );
-                          }) || []}
-                        </div>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Correct Answer</Label>
-                        <Input
-                          value={question.answer}
-                          onChange={(e) => updateQuestion(index, 'answer', e.target.value)}
-                          placeholder="A, B, C, or D"
-                          className="input-elegant"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>TNPSC Group</Label>
-                        <Input
-                          value={question.tnpscGroup}
-                          onChange={(e) => updateQuestion(index, 'tnpscGroup', e.target.value)}
-                          placeholder="e.g., Group 1"
-                          className="input-elegant"
-                        />
-                      </div>
-                    </div>
+// ... inside the options map ...
+<Input
+  value={option || ''} // FIX HERE
+  onChange={(e) => updateQuestionOption(index, optIndex, e.target.value)}
+  className="input-elegant"
+/>
 
-                    <div className="space-y-2">
-                      <Label>Explanation</Label>
-                      <Textarea
-                        value={question.explanation || ""}
-                        onChange={(e) => updateQuestion(index, 'explanation', e.target.value)}
-                        placeholder="Explanation for the correct answer"
-                        className="input-elegant min-h-[60px]"
-                      />
+// ... and so on for every Input and Textarea ...
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div className="space-y-2">
+    <Label>Correct Answer</Label>
+    <Input
+      value={question.answer || ''} // FIX HERE
+      onChange={(e) => updateQuestion(index, 'answer', e.target.value)}
+      placeholder="A, B, C, or D"
+      className="input-elegant"
+    />
+  </div>
+  <div className="space-y-2">
+    <Label>TNPSC Group</Label>
+    <Input
+      value={question.tnpscGroup || ''} // FIX HERE
+      onChange={(e) => updateQuestion(index, 'tnpscGroup', e.target.value)}
+      placeholder="e.g., Group 1"
+      className="input-elegant"
+    />
+  </div>
+</div>
+
+<div className="space-y-2">
+  <Label>Explanation</Label>
+  <Textarea
+    value={question.explanation || ''} // FIX HERE
+    onChange={(e) => updateQuestion(index, 'explanation', e.target.value)}
+    placeholder="Explanation for the correct answer"
+    className="input-elegant min-h-[60px]"
+  />
+</div>
                     </div>
                   </div>
                 </Card>
