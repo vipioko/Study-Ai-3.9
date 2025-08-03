@@ -110,6 +110,56 @@ export const createQuestionBankWithOcr = async (
   }
 };
 
+// NEW FUNCTION: Create Question Bank from JSON file
+export const createQuestionBankFromJson = async (
+  jsonFile: File,
+  userId: string,
+  bankData: Omit<QuestionBank, 'id' | 'uploadDate' | 'fileUrl' | 'fileName' | 'fileHash' | 'fileSize' | 'fileType' | 'uploadedBy' | 'fullOcrText' | 'isActive'>
+): Promise<string> => {
+  try {
+    // Step 1: Read the JSON file
+    console.log("Step 1: Reading JSON file...");
+    const jsonText = await jsonFile.text();
+    const jsonData = JSON.parse(jsonText);
+    
+    // Extract OCR text from JSON (adjust this based on your JSON structure)
+    const ocrText = jsonData.fullText || jsonData.ocrText || jsonData.text || "";
+    
+    if (!ocrText) {
+      throw new Error("No OCR text found in JSON file. Expected 'fullText', 'ocrText', or 'text' field.");
+    }
+
+    console.log("OCR text extracted from JSON, length:", ocrText.length);
+
+    // Step 2: Generate file hash for the JSON file
+    const fileHash = await generateFileHash(jsonFile);
+
+    // Step 3: Prepare the complete data object for Firestore
+    const fullBankData: Omit<QuestionBank, 'id'> = {
+      ...bankData,
+      fileUrl: "", // No file URL for JSON uploads
+      fileName: jsonFile.name,
+      fileHash,
+      fileSize: jsonFile.size,
+      fileType: 'json', // Explicitly set fileType to 'json'
+      uploadedBy: userId,
+      uploadDate: Timestamp.now(),
+      isActive: true,
+      fullOcrText: ocrText,
+    };
+
+    // Step 4: Add the complete Question Bank document to Firestore
+    console.log("Step 4: Saving Question Bank to Firestore...");
+    const docRef = await addDoc(collection(db, "questionBanks"), fullBankData);
+    console.log("Question Bank saved successfully with ID:", docRef.id);
+
+    return docRef.id;
+  } catch (error) {
+    console.error("Error in createQuestionBankFromJson process:", error);
+    throw error;
+  }
+};
+
 
 // --- ALL YOUR OTHER FUNCTIONS REMAIN UNCHANGED ---
 
@@ -151,7 +201,10 @@ export const updateQuestionBank = async (id: string, updates: Partial<QuestionBa
 export const deleteQuestionBank = async (id: string, fileUrl: string): Promise<void> => {
   await updateDoc(doc(db, "questionBanks", id), { isActive: false });
   try {
-    await deleteObject(ref(storage, fileUrl));
+    // Only attempt to delete from storage if fileUrl is not empty (i.e., not a JSON upload)
+    if (fileUrl) {
+      await deleteObject(ref(storage, fileUrl));
+    }
   } catch (error) {
     console.warn("Error deleting file from storage:", error);
   }
