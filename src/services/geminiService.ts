@@ -5,7 +5,7 @@
 
 // --- IMPORTS AND TYPE DEFINITIONS ---
 import { AnalysisResult, Question, QuestionResult } from "@/types/admin";
-import { parseQuestionPaperOcr } from "./questionPaperParser"; // Ensure correct path
+import { parseQuestionPaperOcr } from "../utils/questionPaperParser"; // Ensure correct path
 
 // --- API KEY CONFIGURATION ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
