@@ -86,7 +86,9 @@ MEMORY TIP GUIDELINES:
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
@@ -235,7 +237,9 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error during question generation! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
@@ -349,7 +353,9 @@ Focus on:
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
@@ -494,7 +500,8 @@ MEMORY TIP GUIDELINES:
           });
 
           if (!response.ok) {
-            console.error(`Failed to analyze page ${pageNumber}`);
+            const errorText = await response.text();
+            console.error(`Failed to analyze page ${pageNumber}:`, errorText);
             continue;
           }
 
@@ -624,7 +631,9 @@ MEMORY TIP GUIDELINES:
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
@@ -744,7 +753,9 @@ MEMORY TIP GUIDELINES:
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
