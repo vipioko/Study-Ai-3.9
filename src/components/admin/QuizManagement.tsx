@@ -154,7 +154,7 @@ const QuizManagement = () => {
       // REMOVED: language: quiz.language, // Language is now derived from OCR
       difficulty: quiz.difficulty
     });
-    setGeneratedQuestions(quiz.questions);
+    setGeneratedQuestions(quiz.questions || []);
     setIsEditing(true);
     // Scroll to the top to see the editor
     window.scrollTo({ top: 0, behavior: 'smooth' });
