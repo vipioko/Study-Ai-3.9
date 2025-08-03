@@ -307,6 +307,17 @@ export const generateQuestions = async (
         totalQuestions: enrichedQuestions.length,
       };
     }
+    // Inside geminiService.ts, within the generateQuestions function
+
+if (fullOcrText) {
+  console.log("Starting Step 1: Parsing questions from OCR text...");
+
+  // --- ADD THIS LINE ---
+  console.log("--- RAW OCR TEXT FOR DEBUGGING ---\n", fullOcrText, "\n--- END OF RAW OCR TEXT ---");
+  // --- END OF LINE TO ADD ---
+
+  const parsedResult = questionPaperParser(fullOcrText);
+  // ... rest of the function
 
     // --- PATH 2: ORIGINAL FALLBACK LOGIC for generating from study materials ---
     console.log("No OCR text provided. Generating new questions from analysis results...");
