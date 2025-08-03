@@ -132,7 +132,7 @@ function extractEnglishQuestion(block: string): string | null {
       // Clean up common OCR artifacts
       const cleaned = question
         .replace(/\s+/g, ' ')
-        .replace(/[^\w\s\-.,?!()]/g, '')
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
         .trim();
       
       if (cleaned.length > 10) {
@@ -167,7 +167,7 @@ function extractEnglishOptions(block: string): string[] {
       if (optionText.length > 2) {
         tempOptions[optionLetter] = optionText
           .replace(/\s+/g, ' ')
-          .replace(/[^\w\s\-.,?!()]/g, '')
+          .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
           .trim();
       }
     }
