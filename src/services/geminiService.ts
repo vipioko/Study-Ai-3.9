@@ -121,13 +121,13 @@ const createEnrichmentPrompt = (question: Partial<Question>, outputLanguage: "en
   // Step 1: Safely prepare all variables with default values first.
   const questionText = question?.question || 'N/A';
   const questionOptions = question?.options || [];
-  const questionAnswer = question?.answer || '';
+  const questionAnswer: string = (question?.answer ?? '') as string;
   const questionTamilText = question?.tamilQuestion || 'N/A';
   
   // Step 2: Perform the logic in simple, separate steps.
   let correctOptionText = 'N/A';
   if (questionAnswer && questionOptions.length > 0) {
-    const idx = 'ABCD'.indexOf(questionAnswer);
+    const idx = questionAnswer ? 'ABCD'.indexOf(questionAnswer) : -1;
     if (idx !== -1 && questionOptions[idx]) {
       correctOptionText = questionOptions[idx];
     }
