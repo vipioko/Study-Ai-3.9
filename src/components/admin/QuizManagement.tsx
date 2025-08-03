@@ -108,23 +108,36 @@ const QuizManagement = () => {
 
         // 1. Get the public URL of the file from the question bank document
         const fileUrl = questionBank.fileUrl;
+       console.log("File URL for OCR:", fileUrl);
         if (!fileUrl) {
             throw new Error("File URL is missing from this Question Bank. Cannot process OCR.");
         }
 
         // 2. Call your Cloud Run service to perform OCR
         const ocrServiceUrl = "https://ocr-image-processor-747684597937.us-central1.run.app"; // Your live URL
+       console.log("Calling OCR service:", ocrServiceUrl);
+       console.log("Request payload:", { fileUrl: fileUrl });
+       
         const ocrResponse = await fetch(ocrServiceUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fileUrl: fileUrl })
         });
 
+       console.log("OCR Response status:", ocrResponse.status);
+       console.log("OCR Response ok:", ocrResponse.ok);
+       
         if (!ocrResponse.ok) {
+           const errorText = await ocrResponse.text();
+           console.error("OCR service error response:", errorText);
             throw new Error(`The OCR service failed with status: ${ocrResponse.status}`);
         }
 
         const ocrResult = await ocrResponse.json();
+       console.log("OCR Result received:", ocrResult);
+       console.log("OCR fullText:", ocrResult.fullText);
+       console.log("OCR fullText length:", ocrResult.fullText?.length || 0);
+       
         const extractedText = ocrResult.fullText;
 
         // 3. Save the extracted text back to the Firestore document for future use
@@ -134,6 +147,7 @@ const QuizManagement = () => {
         toast.success("OCR process complete and text saved!");
       } else {
         // If OCR text already exists, just use it.
+       console.log("Using existing OCR text, length:", questionBank.fullOcrText.length);
         ocrTextToProcess = questionBank.fullOcrText;
       }
       
