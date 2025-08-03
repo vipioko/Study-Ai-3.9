@@ -33,24 +33,29 @@ export const parseQuestionPaperOcr = (ocrText: string): Question[] => {
  */
 function splitIntoQuestionBlocks(ocrText: string): string[] {
   // Pattern to match question numbers (1., 2., 3., etc.)
-  const questionNumberPattern = /(?:^|\n)\s*(\d+)\s*\./gm;
+  // Added `|` to the start of the regex to ensure it matches the very beginning of the string
+  const questionNumberPattern = /(?:^|\n|^)\s*(\d+)\s*[\.\)]/gm; // MODIFIED REGEX
   const blocks: string[] = [];
   
   let lastIndex = 0;
   let match;
   
+  // Find all question number markers
+  const markers = [];
   while ((match = questionNumberPattern.exec(ocrText)) !== null) {
-    if (lastIndex > 0) {
-      // Add the previous block
-      const blockText = ocrText.substring(lastIndex, match.index);
-      blocks.push(blockText.trim());
-    }
-    lastIndex = match.index;
+    markers.push({ index: match.index, number: parseInt(match[1], 10) });
   }
-  
-  // Add the last block
-  if (lastIndex < ocrText.length) {
-    const blockText = ocrText.substring(lastIndex);
+
+  if (markers.length === 0) {
+    return [];
+  }
+
+  // Extract content between markers
+  for (let i = 0; i < markers.length; i++) {
+    const currentMarker = markers[i];
+    const nextMarker = markers[i + 1];
+    
+    const blockText = ocrText.substring(currentMarker.index, nextMarker ? nextMarker.index : ocrText.length);
     blocks.push(blockText.trim());
   }
   
@@ -112,15 +117,19 @@ function parseQuestionBlock(block: string): Question | null {
  * Extracts the English question text from a question block
  */
 function extractEnglishQuestion(block: string): string | null {
-  // Remove the question number prefix
-  const withoutNumber = block.replace(/^\s*\d+\s*\./, '').trim();
+  // Remove the question number prefix, now supporting both . and )
+  const withoutNumber = block.replace(/^\s*\d+\s*[\.\)]/, '').trim(); // MODIFIED REGEX
   
   // Look for the question text before the first option (A) or before Tamil content
   const patterns = [
-    // Pattern 1: Question ends before option (A)
-    /^(.*?)(?:\s*\(?A\)?)/s,
+    // Question ends before option (A, B, C, D) with common delimiters
+    /^(.*?)(?:\s*[\(]?[A-D][\.\)]|\s*[\(]?[A-D][\)]|\s*[\(]?[A-D]\s+)/s, // More flexible option start
     // Pattern 2: Question ends before Tamil script
     /^(.*?)(?=[\u0B80-\u0BFF])/s,
+    // Fallback: Take text until a newline followed by a capital letter (potential option)
+    // This helps if options are on new lines and not perfectly formatted
+    /^([^\n]+?)(?=\n\s*[A-Z][\.\)]|\n\s*[\u0B80-\u0BFF]|$)/s,
+    // Fallback: Take text until a newline followed by a capital letter (potential option)
     // Pattern 3: Take first substantial line if no clear delimiter
     /^([^\n]{20,})/
   ];
@@ -149,40 +158,31 @@ function extractEnglishQuestion(block: string): string | null {
  */
 function extractEnglishOptions(block: string): string[] {
   const options: string[] = [];
+  // Simplified pattern: look for A, B, C, D followed by common delimiters and text
+  // Capture the option letter and the text
+  const optionRegex = /([A-D])[\.\)]?\s*([^\n\r]+?)(?=\s*[A-D][\.\)]?|\s*[\u0B80-\u0BFF]|$)/g; // MODIFIED REGEX
   
-  // Pattern to match options like "(A)", "A)", "A.", etc.
-  const optionPatterns = [
-    /\(?([A-D])\)?\s*([^\n\r]+?)(?=\s*\(?[A-D]\)?|\s*[\u0B80-\u0BFF]|$)/g,
-    /([A-D])[\.\)]\s*([^\n\r]+?)(?=\s*[A-D][\.\)]|\s*[\u0B80-\u0BFF]|$)/g
-  ];
+  let match;
+  const tempOptions: { [key: string]: string } = {};
   
-  for (const pattern of optionPatterns) {
-    let match;
-    const tempOptions: { [key: string]: string } = {};
+  while ((match = optionRegex.exec(block)) !== null) {
+    const optionLetter = match[1];
+    const optionText = match[2].trim();
     
-    while ((match = pattern.exec(block)) !== null) {
-      const optionLetter = match[1];
-      const optionText = match[2].trim();
-      
-      if (optionText.length > 2) {
-        tempOptions[optionLetter] = optionText
-          .replace(/\s+/g, ' ')
-          .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-          .trim();
-      }
-    }
-    
-    // Convert to ordered array (A, B, C, D)
-    const orderedOptions = ['A', 'B', 'C', 'D']
-      .map(letter => tempOptions[letter])
-      .filter(option => option && option.length > 0);
-    
-    if (orderedOptions.length >= 2) {
-      return orderedOptions;
+    if (optionText.length > 1) { // Option text should be more than just a letter
+      tempOptions[optionLetter] = optionText
+        .replace(/\s+/g, ' ')
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+        .trim();
     }
   }
   
-  return [];
+  // Convert to ordered array (A, B, C, D)
+  const orderedOptions = ['A', 'B', 'C', 'D']
+    .map(letter => tempOptions[letter])
+    .filter(option => option && option.length > 0);
+  
+  return orderedOptions;
 }
 
 /**
@@ -221,15 +221,14 @@ function extractTamilOptions(block: string): string[] {
 }
 
 /**
- * Finds the correct answer by looking for checkmark symbols
+ * Finds the correct answer by looking for checkmark symbols or explicit markers
  */
 function findCorrectAnswer(block: string): string | null {
-  // Look for checkmark patterns near options
+  // Prioritize checkmark patterns
   const checkmarkPatterns = [
-    /\(?([A-D])\)?\s*[^✓]*?✓/g,
-    /✓\s*\(?([A-D])\)?/g,
-    /\(?([A-D])\)?\s*[^✓]*?[✓√]/g,
-    /[✓√]\s*\(?([A-D])\)?/g
+    /\(?([A-D])\)?\s*[^✓√]*?[✓√]/g, // Option followed by checkmark
+    /[✓√]\s*\(?([A-D])\)?/g,       // Checkmark followed by option
+    /\(?([A-D])\)?\s*[^✓√]*?\s*(?:Correct|Answer|Ans)\b/i // Option followed by "Correct" etc.
   ];
   
   for (const pattern of checkmarkPatterns) {
@@ -242,22 +241,21 @@ function findCorrectAnswer(block: string): string | null {
     }
   }
   
-  // Fallback: look for any indication of correct answer
-  const fallbackPatterns = [
-    /(?:correct|answer|ans)[\s:]*\(?([A-D])\)?/i,
-    /\(?([A-D])\)?\s*(?:correct|right)/i
+  // Fallback: look for explicit "Answer: A" or similar
+  const explicitAnswerPatterns = [
+    /(?:Correct|Answer|Ans)\s*:\s*([A-D])/i, // e.g., "Answer: A"
+    /Option\s*([A-D])\s*is\s*correct/i      // e.g., "Option B is correct"
   ];
-  
-  for (const pattern of fallbackPatterns) {
+
+  for (const pattern of explicitAnswerPatterns) {
     const match = block.match(pattern);
     if (match && match[1]) {
-      return match[1];
+      return match[1].toUpperCase();
     }
   }
   
-  return null;
+  return [];
 }
-
 /**
  * Validates and cleans extracted question data
  */
