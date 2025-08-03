@@ -115,28 +115,37 @@ export const analyzeIndividualPage = async (
 /**
  * Creates the prompt for the AI-powered extraction fallback ("Safety Net").
  */
+// In src/services/geminiService.ts
+
+/**
+ * Creates the prompt for the AI-powered extraction fallback ("Safety Net").
+ * THIS VERSION IS UPGRADED TO BE MORE ACCURATE.
+ */
 const createAiExtractionPrompt = (fullOcrText: string): string => `
 ### TASK
-You are a highly accurate data extraction bot. Your job is to parse the provided text from a question paper and convert it into a structured JSON array.
+You are an expert data extraction bot. The user has provided a single block of text that contains MULTIPLE multiple-choice questions from a TNPSC exam paper. Your job is to meticulously identify each individual question, extract its components, and format the output as a single JSON array.
 
-### CONTEXT
-The text may contain a series of numbered multiple-choice questions. A question might appear in both English and Tamil. The correct answer could be indicated by a checkmark (✓) or a keyword.
-
-### INSTRUCTIONS
-1.  Scan the entire text. For EACH numbered question you can identify, extract the information precisely.
-2.  Identify the correct answer. It is the letter ('A', 'B', 'C', or 'D') of the option that has a checkmark (✓) or is explicitly stated.
-3.  If a question has both English and Tamil parts, extract both. If not, leave the missing fields as empty strings or null.
-4.  It is absolutely critical that you extract EVERY SINGLE QUESTION you can find.
-5.  Return ONLY the raw JSON array. Do not include any other text, explanations, or markdown formatting.
+### CONTEXT & INSTRUCTIONS
+1.  **Identify Question Boundaries:** Your most important first step is to determine where one question ends and the next one begins. A new question block often starts after the Tamil options of the previous one. Scan for patterns to separate the text into individual question chunks.
+2.  **For Each Question Chunk, Extract the Following:**
+    *   **`question`**: The English question text.
+    *   **`options`**: An array of exactly four English option strings.
+    *   **`answer`**: The single capital letter ('A', 'B', 'C', or 'D') of the correct option. The correct option is the one that had a checkmark (✓) next to it in the original document. You must infer which one was checked.
+    *   **`tamilQuestion`**: The Tamil question text.
+    *   **`tamilOptions`**: An array of the four Tamil option strings.
+3.  **Data Integrity:**
+    *   Do NOT include headers, footers, or page numbers (like "ARAM TNPSC 2.0" or "லஞ்சம் பிச்சைக்கு சமம்...") in any of the extracted fields.
+    *   Clean the text to remove unnecessary newlines.
+4.  **Output Format:** Return ONLY a valid JSON array containing the objects for each question you found. Do not include explanations or markdown.
 
 ### JSON OUTPUT FORMAT
 [
   {
-    "question": "The English question text",
-    "options": ["English Option A", "English Option B", "English Option C", "English Option D"],
-    "answer": "C",
-    "tamilQuestion": "The Tamil question text or null",
-    "tamilOptions": ["Tamil Option A", "Tamil Option B", "Tamil Option C", "Tamil Option D"]
+    "question": "Which Article of the constitution makes provision for the appointment of a law officer the attorney general by the President of India?",
+    "options": ["Article 42", "Article 76", "Article 44", "Article 153"],
+    "answer": "B",
+    "tamilQuestion": "எந்த அரசியல் சட்டவிதிப்படி மத்திய அரசு தலைமை வழக்கறிஞர் குடியரசுத் தலைவரால் நியமிக்கப்படுகின்றார்?",
+    "tamilOptions": ["அரசியல் சட்ட விதி 42", "சட்ட விதி 76", "சட்ட விதி 44", "சட்ட விதி 153"]
   }
 ]
 
