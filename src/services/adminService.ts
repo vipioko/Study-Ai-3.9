@@ -1,3 +1,5 @@
+// src/services/adminService.ts
+
 import { 
   collection, 
   addDoc, 
@@ -26,6 +28,31 @@ const generateFileHash = async (file: File): Promise<string> => {
   const hash = await crypto.subtle.digest('SHA-256', buffer);
   const hashArray = Array.from(new Uint8Array(hash));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+// NEW FUNCTION: Fetch OCR text from Google Cloud Vision API via Cloud Function
+export const fetchOcrTextFromVision = async (fileUrl: string): Promise<string> => {
+  try {
+    // IMPORTANT: Replaced 'YOUR_GOOGLE_CLOUD_FUNCTION_URL' with your actual Cloud Function Trigger URL
+    const response = await fetch('https://ocr-image-processor-747684597937.us-central1.run.app', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fileUrl }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Cloud Function error: ${errorData.error || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.fullText || '';
+  } catch (error) {
+    console.error('Error fetching OCR text from Cloud Function:', error);
+    throw error;
+  }
 };
 
 // Category Management
