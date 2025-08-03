@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Edit, Trash2, Save, X, Zap } from "lucide-react";
+import { Brain, Edit, Trash2, Save, X, Zap, Download } from "lucide-react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/config/firebase";
 import { Category, QuestionBank, Quiz, Question } from "@/types/admin";
@@ -50,6 +50,7 @@ const QuizManagement = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
+  const [lastOcrText, setLastOcrText] = useState<string>("");
   
   const [quizForm, setQuizForm] = useState({
     title: "",
@@ -136,6 +137,9 @@ const QuizManagement = () => {
         ocrTextToProcess = questionBank.fullOcrText;
       }
       
+      // Store the OCR text for debugging download
+      setLastOcrText(ocrTextToProcess);
+      
       // --- PROCEED WITH QUIZ GENERATION ---
       const result = await generateQuestions([], "medium", "english", ocrTextToProcess);
       
@@ -155,6 +159,7 @@ const QuizManagement = () => {
     } catch (error) {
       console.error("Error generating quiz:", error);
       toast.error(`Failed to generate quiz: ${(error as Error).message}`);
+       setLastOcrText(""); // Clear OCR text on error
     } finally {
       setIsGenerating(false);
     }
@@ -234,6 +239,7 @@ const QuizManagement = () => {
   const resetQuizForm = () => {
     setQuizForm({ title: "", description: "", questionBankId: "", difficulty: "medium" });
     setGeneratedQuestions([]);
+     setLastOcrText(""); // Clear OCR text when resetting
     setIsEditing(false);
     setEditingQuiz(null);
   };
@@ -251,6 +257,38 @@ const QuizManagement = () => {
   const getCategoryName = (categoryId: string) => categories.find(c => c.id === categoryId)?.name || "Unknown";
   const getQuestionBankName = (questionBankId: string) => questionBanks.find(qb => qb.id === questionBankId)?.title || "Unknown";
 
+   const handleDownloadOcrText = () => {
+     if (!lastOcrText) {
+       toast.error("No OCR text available to download");
+       return;
+     }
+ 
+     try {
+       const ocrData = {
+         timestamp: new Date().toISOString(),
+         questionBankId: quizForm.questionBankId,
+         questionBankTitle: getQuestionBankName(quizForm.questionBankId),
+         ocrTextLength: lastOcrText.length,
+         fullOcrText: lastOcrText
+       };
+ 
+       const blob = new Blob([JSON.stringify(ocrData, null, 2)], { type: 'application/json' });
+       const url = URL.createObjectURL(blob);
+       const a = document.createElement('a');
+       a.href = url;
+       a.download = `ocr-debug-${getQuestionBankName(quizForm.questionBankId)}-${Date.now()}.json`;
+       document.body.appendChild(a);
+       a.click();
+       document.body.removeChild(a);
+       URL.revokeObjectURL(url);
+ 
+       toast.success("OCR text downloaded successfully!");
+     } catch (error) {
+       console.error("Error downloading OCR text:", error);
+       toast.error("Failed to download OCR text");
+     }
+   };
+ 
   if (isLoading) {
     return <div className="text-center py-8">Loading...</div>;
   }
@@ -282,6 +320,12 @@ const QuizManagement = () => {
             <Button onClick={() => handleGenerateQuiz(quizForm.questionBankId)} disabled={!quizForm.questionBankId || isGenerating || isEditing} className="btn-primary w-full">
               {isGenerating ? "Generating..." : <><Zap className="h-4 w-4 mr-2" />Generate Quiz</>}
             </Button>
+             {lastOcrText && (
+               <Button onClick={handleDownloadOcrText} variant="outline" className="ml-2 whitespace-nowrap">
+                 <Download className="h-4 w-4 mr-2" />
+                 Download OCR
+               </Button>
+             )}
           </div>
         </div>
         
