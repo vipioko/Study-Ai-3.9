@@ -285,11 +285,11 @@ const QuizManagement = () => {
         </div>
 
         {/* Generated Questions Editor */}
-        {generatedQuestions.length > 0 && (
+        {generatedQuestions?.length > 0 && (
           <div className="space-y-6 mt-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
             <div className="flex items-center justify-between">
               <h4 className="text-lg font-semibold text-gray-800">
-                {isEditing ? 'Editing Questions' : 'Generated Questions'} ({generatedQuestions.length})
+                {isEditing ? 'Editing Questions' : 'Generated Questions'} ({generatedQuestions?.length || 0})
               </h4>
               <div className="flex gap-3">
                 <Button onClick={handleSaveQuiz} className="btn-primary">
