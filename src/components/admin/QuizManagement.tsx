@@ -126,10 +126,6 @@ const QuizManagement = () => {
         const ocrResult = await ocrResponse.json();
         const extractedText = ocrResult.fullText;
 
-        if (!extractedText) {
-            throw new Error("OCR process ran but returned no text.");
-        }
-
         // 3. Save the extracted text back to the Firestore document for future use
         await updateQuestionBank(questionBankId, { fullOcrText: extractedText });
         
