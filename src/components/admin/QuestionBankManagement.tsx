@@ -1,3 +1,5 @@
+// src/components/admin/QuestionBankManagement.tsx
+
 import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,10 +19,11 @@ import {
   addQuestionBank, 
   getQuestionBanks, 
   updateQuestionBank, 
-  deleteQuestionBank 
+  deleteQuestionBank,
+  fetchOcrTextFromVision // Import the new function
 } from "@/services/adminService";
 import { analyzePdfContent, analyzeImage } from "@/services/geminiService";
-import { extractAllPdfText, extractTextFromImage } from "@/utils/pdfReader";
+// import { extractAllPdfText, extractTextFromImage } from "@/utils/pdfReader"; // REMOVED: Local OCR extraction
 import { toast } from "sonner";
 
 const QuestionBankManagement = () => {
@@ -101,24 +104,27 @@ const QuestionBankManagement = () => {
       let fullOcrText = null;
 
       if (selectedFile) {
-        // Upload file
+        // Upload file to Firebase Storage
         setUploadProgress(30);
         fileData = await uploadQuestionBankFile(selectedFile, user.uid);
         
-        // Extract full OCR text
+        // Fetch full OCR text using the new Cloud Function
         setUploadProgress(50);
-        if (selectedFile.type === 'application/pdf') {
-          fullOcrText = await extractAllPdfText(selectedFile);
-        } else {
-          fullOcrText = await extractTextFromImage(selectedFile);
-        }
+        fullOcrText = await fetchOcrTextFromVision(fileData.fileUrl);
         
-        // Analyze content with AI
+        // Analyze content with AI (using Gemini service, which might use OCR text or image directly)
         setUploadProgress(70);
+        // The analyzePdfContent and analyzeImage functions in geminiService.ts
+        // should be updated to accept fullOcrText if they don't already,
+        // or you can decide if you still want to run Gemini's own analysis on the file.
+        // For now, keeping the existing calls to Gemini service for analysisData.
         if (selectedFile.type === 'application/pdf') {
-          analysisData = await analyzePdfContent(fullOcrText, 'english');
+          // Assuming analyzePdfContent can take raw text or will be updated to.
+          // If analyzePdfContent expects a file, you might need to adjust.
+          analysisData = await analyzePdfContent(fullOcrText, 'english'); 
         } else {
-          analysisData = await analyzeImage(selectedFile, 'english');
+          // If analyzeImage expects a file, you might need to adjust.
+          analysisData = await analyzeImage(selectedFile, 'english'); 
         }
         setUploadProgress(90);
       }
@@ -138,7 +144,7 @@ const QuestionBankManagement = () => {
           updates.fileHash = fileData.fileHash;
           updates.fileSize = fileData.fileSize;
           updates.fileType = selectedFile!.type === 'application/pdf' ? 'pdf' : 'image';
-          updates.fullOcrText = fullOcrText;
+          updates.fullOcrText = fullOcrText; // Store the OCR text
           updates.analysisData = analysisData;
         }
 
@@ -158,7 +164,7 @@ const QuestionBankManagement = () => {
           fileType: selectedFile!.type === 'application/pdf' ? 'pdf' : 'image',
           uploadedBy: user.uid,
           isActive: true,
-          fullOcrText: fullOcrText,
+          fullOcrText: fullOcrText, // Store the OCR text
           analysisData
         });
         toast.success("Question bank added successfully!");
@@ -389,7 +395,7 @@ const QuestionBankManagement = () => {
               <Card key={bank.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.1}s`}}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       {bank.fileType === 'pdf' ? (
                         <FileText className="h-5 w-5 text-red-600" />
                       ) : (
