@@ -1,3 +1,5 @@
+// src/components/admin/QuizManagement.tsx
+
 import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,15 +36,11 @@ const QuizManagement = () => {
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
   const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
   
-  // Note: The original code had a potential issue where `difficulty` was not in the quizForm state.
-  // I've added it to avoid potential errors in handleGenerateQuiz if it's needed there.
-  // If not, it can be removed. Based on the code, it seems you want a default 'medium' for new quizzes,
-  // so this state might not be strictly necessary for the form itself.
   const [quizForm, setQuizForm] = useState({
     title: "",
     description: "",
     questionBankId: "",
-    language: "english",
+    // REMOVED: language: "english", // Language will be determined by OCR content
     difficulty: "medium" // Default difficulty
   });
 
@@ -55,8 +53,7 @@ const QuizManagement = () => {
       setIsLoading(true);
       const [categoriesData, questionBanksData, quizzesData] = await Promise.all([
         getCategories(),
-        getQuestionBanks(),
-        getQuizzes()
+        getQuestionBanks()
       ]);
       setCategories(categoriesData);
       setQuestionBanks(questionBanksData);
@@ -75,34 +72,16 @@ const QuizManagement = () => {
       setIsGenerating(true);
       const questionBank = await getQuestionBankById(questionBankId);
       
-      if (!questionBank || !questionBank.analysisData) {
-        toast.error("Question bank not found or not analyzed yet");
+      if (!questionBank || !questionBank.fullOcrText) { // Ensure fullOcrText is available
+        toast.error("Question bank not found or OCR text not available. Please upload a file with OCR.");
         return;
       }
 
       // Use deterministic OCR parsing for question papers
-      if (questionBank.fullOcrText) {
-        // Direct extraction from OCR text (no AI generation)
-        const result = await generateQuestions([], "medium", quizForm.language, questionBank.fullOcrText);
-        setGeneratedQuestions(result.questions || []);
-        toast.success(`Copied ${result.questions?.length || 0} questions directly from the question paper!`);
-      } else if (questionBank.analysisData) {
-        // Fallback to analysis-based generation for older question banks
-        const analysisResults = [{
-          keyPoints: questionBank.analysisData.keyPoints || [],
-          summary: questionBank.analysisData.summary || '',
-          tnpscRelevance: questionBank.analysisData.tnpscRelevance || '',
-          studyPoints: questionBank.analysisData.studyPoints || [],
-          tnpscCategories: questionBank.analysisData.tnpscCategories || []
-        }];
-
-        const result = await generateQuestions(analysisResults, "medium", quizForm.language);
-        setGeneratedQuestions(result.questions || []);
-        toast.success(`Generated ${result.questions?.length || 0} questions from study material analysis!`);
-      } else {
-        toast.error("Question bank has no content data available for quiz generation");
-        return;
-      }
+      // Pass the fullOcrText directly to generateQuestions
+      const result = await generateQuestions([], "medium", "english", questionBank.fullOcrText); // Pass fullOcrText
+      setGeneratedQuestions(result.questions || []);
+      toast.success(`Copied ${result.questions?.length || 0} questions directly from the question paper!`);
       
       setQuizForm(prev => ({
         ...prev,
@@ -136,7 +115,7 @@ const QuizManagement = () => {
           title: quizForm.title.trim(),
           description: quizForm.description.trim(),
           difficulty: editingQuiz.difficulty, // Keep original difficulty when editing
-          language: quizForm.language,
+          language: editingQuiz.language, // Keep original language when editing
           questions: generatedQuestions,
           totalQuestions: generatedQuestions.length
         });
@@ -148,7 +127,7 @@ const QuizManagement = () => {
           questionBankId: quizForm.questionBankId,
           categoryId: questionBank.categoryId,
           difficulty: "medium", // Default difficulty for new quizzes
-          language: quizForm.language,
+          language: "english", // Default to English, as language is now derived from OCR
           questions: generatedQuestions,
           totalQuestions: generatedQuestions.length,
           createdBy: user.uid,
@@ -172,7 +151,7 @@ const QuizManagement = () => {
       title: quiz.title,
       description: quiz.description || "",
       questionBankId: quiz.questionBankId,
-      language: quiz.language,
+      // REMOVED: language: quiz.language, // Language is now derived from OCR
       difficulty: quiz.difficulty
     });
     setGeneratedQuestions(quiz.questions);
@@ -198,7 +177,7 @@ const QuizManagement = () => {
       title: "",
       description: "",
       questionBankId: "",
-      language: "english",
+      // REMOVED: language: "english",
       difficulty: "medium"
     });
     setGeneratedQuestions([]);
@@ -270,7 +249,8 @@ const QuizManagement = () => {
             </Select>
           </div>
           
-          <div className="space-y-2">
+          {/* REMOVED: Language selection */}
+          {/* <div className="space-y-2">
             <Label>Language</Label>
             <Select value={quizForm.language} onValueChange={(value: 'english' | 'tamil') => setQuizForm(prev => ({ ...prev, language: value }))}>
               <SelectTrigger className="input-elegant">
@@ -281,7 +261,7 @@ const QuizManagement = () => {
                 <SelectItem value="tamil">🇮🇳 தமிழ்</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div> */}
           
           <div className="flex items-end">
             <Button
