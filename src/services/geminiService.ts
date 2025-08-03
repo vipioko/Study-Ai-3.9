@@ -1,6 +1,6 @@
 // ========================================================================
 // FILE: src/services/geminiService.ts
-// VERSION: FINAL - Build Error Corrected
+// VERSION: FINAL - Explicitly rewritten to solve the Vite build error.
 // ========================================================================
 
 // --- IMPORTS AND TYPE DEFINITIONS ---
@@ -16,7 +16,7 @@ if (!GEMINI_API_KEY) {
 
 
 // ========================================================================
-//  CORE ANALYSIS FUNCTIONS (Including All Original Placeholders)
+//  CORE ANALYSIS FUNCTIONS (Unchanged)
 // ========================================================================
 
 export const analyzeImage = async (file: File, outputLanguage: "english" | "tamil" = "english"): Promise<AnalysisResult> => {
@@ -113,39 +113,40 @@ ${fullOcrText}
 
 /**
  * Creates the prompt for enriching an extracted question with explanations and metadata.
- * THIS VERSION IS REWRITTEN TO BE SIMPLER FOR THE VITE BUILD TOOL.
+ * THIS VERSION IS REWRITTEN TO BE EXTREMELY SIMPLE TO AVOID VITE BUILD ERRORS.
  */
 const createEnrichmentPrompt = (question: Partial<Question>, outputLanguage: "english" | "tamil"): string => {
-  // Step 1: Safely get the answer, defaulting to an empty string.
-  let answer = '';
-  if (question && question.answer) {
-    answer = question.answer;
+  // --- Start of Radical Simplification for the Build Tool ---
+
+  // Step 1: Safely prepare all variables with default values first.
+  const questionText = question?.question || 'N/A';
+  const questionOptions = question?.options || [];
+  const questionAnswer = question?.answer || '';
+  const questionTamilText = question?.tamilQuestion || 'N/A';
+  
+  // Step 2: Perform the logic in simple, separate steps.
+  let correctOptionText = 'N/A';
+  if (questionAnswer && questionOptions.length > 0) {
+    const idx = 'ABCD'.indexOf(questionAnswer);
+    if (idx !== -1 && questionOptions[idx]) {
+      correctOptionText = questionOptions[idx];
+    }
   }
 
-  // Step 2: Safely get the options, defaulting to an empty array.
-  let options: string[] = [];
-  if (question && question.options) {
-    options = question.options;
-  }
-  
-  // Step 3: Find the index and the text of the correct option.
-  const correctOptionIndex = 'ABCD'.indexOf(answer);
-  let correctOptionText = "N/A";
-  if (correctOptionIndex !== -1 && options[correctOptionIndex]) {
-      correctOptionText = options[correctOptionIndex];
-  }
-  
-  // Step 4: Determine the language instruction.
-  const languageInstruction = outputLanguage === 'tamil' ? "Provide the explanation in clear Tamil." : "Provide the explanation in clear English.";
+  // Step 3: Prepare the language instruction.
+  const languageInstruction = outputLanguage === 'tamil' 
+    ? "Provide the explanation in clear Tamil." 
+    : "Provide the explanation in clear English.";
 
-  // Step 5: Construct the prompt.
-  return `
+  // Step 4: Construct the final string using only simple variables.
+  const prompt = `
 ### TASK
 You are a TNPSC exam expert. Provide a helpful explanation and analysis for the given question.
 ### QUESTION DETAILS
-- Question: ${question?.question || 'N/A'}
-- Options: ${JSON.stringify(options)}
-- Correct Answer: ${answer} (${correctOptionText})
+- Question: ${questionText}
+- Options: ${JSON.stringify(questionOptions)}
+- Correct Answer: ${questionAnswer} (${correctOptionText})
+- Tamil Question: ${questionTamilText}
 ### INSTRUCTIONS
 1.  Write a brief, clear explanation for why the answer is correct.
 2.  Estimate the TNPSC group level (e.g., "Group 1", "Group 2").
@@ -153,6 +154,9 @@ You are a TNPSC exam expert. Provide a helpful explanation and analysis for the 
 4.  Return ONLY a valid JSON object with the following format.
 ### JSON OUTPUT FORMAT
 { "explanation": "A clear explanation.", "tnpscGroup": "Group 1" }`;
+
+  return prompt;
+  // --- End of Radical Simplification ---
 };
 
 
