@@ -81,6 +81,7 @@ MEMORY TIP GUIDELINES:
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 2048,
+          response_mime_type: "application/json",
         }
       })
     });
@@ -348,6 +349,7 @@ Focus on:
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 1500,
+          response_mime_type: "application/json",
         }
       })
     });
@@ -495,6 +497,7 @@ MEMORY TIP GUIDELINES:
               generationConfig: {
                 temperature: 0.7,
                 maxOutputTokens: 2000,
+                response_mime_type: "application/json",
               }
             })
           });
@@ -626,6 +629,7 @@ MEMORY TIP GUIDELINES:
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 2048,
+          response_mime_type: "application/json",
         }
       })
     });
@@ -748,6 +752,7 @@ MEMORY TIP GUIDELINES:
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 3000,
+          response_mime_type: "application/json",
         }
       })
     });
