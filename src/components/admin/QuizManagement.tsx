@@ -453,7 +453,6 @@ const QuizManagement = () => {
         )}
       </Card>
 
-// ... (keep the rest of your component code the same)
 
       {/* Existing Quizzes */}
       <Card className="glass-card p-6">
