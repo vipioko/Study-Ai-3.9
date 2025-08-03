@@ -369,7 +369,7 @@ const QuizManagement = () => {
                       <div className="space-y-2">
                         <Label>Options</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {question.options.map((option, optIndex) => (
+                          {question.options?.map((option, optIndex) => (
                             <div key={optIndex} className="flex items-center gap-2">
                               <span className="font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded text-sm">
                                 {String.fromCharCode(65 + optIndex)}
@@ -380,16 +380,16 @@ const QuizManagement = () => {
                                 className="input-elegant"
                               />
                             </div>
-                          ))}
+                          )) || []}
                         </div>
                       </div>
                     )}
 
-                    {question.tamilOptions && question.tamilOptions.length > 0 && (
+                    {question.tamilOptions && question.tamilOptions?.length > 0 && (
                       <div className="space-y-2">
                         <Label>Tamil Options</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {question.tamilOptions.map((option, optIndex) => {
+                          {question.tamilOptions?.map((option, optIndex) => {
                             const tamilLetter = ['அ', 'ஆ', 'இ', 'ஈ'][optIndex] || `${optIndex + 1}`;
                             return (
                               <div key={optIndex} className="flex items-center gap-2">
@@ -411,7 +411,7 @@ const QuizManagement = () => {
                                 />
                               </div>
                             );
-                          })}
+                          }) || []}
                         </div>
                       </div>
                     )}
