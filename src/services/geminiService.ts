@@ -122,155 +122,151 @@ export const generateQuestions = async (
   fullOcrText?: string
 ): Promise<QuestionResult> => {
   try {
-    // If fullOcrText is provided, use the new extraction prompt
+    // --- PATH 1: "EXTRACT, THEN ENRICH" for Question Papers ---
     if (fullOcrText) {
-      const languageInstruction = outputLanguage === "tamil" 
-        ? "Extract questions in Tamil language format."
-        : "Extract questions in English language format.";
+      // STEP 1: PURE EXTRACTION
+      console.log("Starting Step 1: Extracting questions from OCR text...");
+      const extractedQuestions = await extractQuestionsFromOcr(fullOcrText, GEMINI_API_KEY);
+      console.log(`Extraction complete. Found ${extractedQuestions.length} questions.`);
 
-      const prompt = `### TASK
-You are a highly accurate data extraction bot. Your job is to parse the provided text, which contains questions from a test paper, and convert it into a structured quiz format.
+      if (!extractedQuestions || extractedQuestions.length === 0) {
+        throw new Error("Extraction resulted in zero questions. The document might not be a question paper or the text is unreadable.");
+      }
 
-### CONTEXT
-The text contains a series of multiple-choice questions. Each question is numbered and appears in two languages: English first, then Tamil. The correct answer is indicated by a checkmark (✓) next to the option.
-
-### INSTRUCTIONS
-1. Process the text sequentially.
-2. For each numbered question, extract the following components:
-   - The full English question text.
-   - All four English options (A, B, C, D).
-   - The full Tamil question text.
-   - All four Tamil options.
-   - The correct answer, as indicated by the checkmark.
-3. Preserve the original wording and numbering exactly.
-4. CRITICAL: Extract ALL questions found in the text. If there are 50 questions, return 50 questions. Do not limit or summarize.
-5. It is absolutely critical that you extract EVERY SINGLE QUESTION from the provided text. Do not stop early.
-6. Return the result as a JSON array with this exact format:
-
-### EXAMPLE OUTPUT FORMAT (showing multiple questions):
-[
-  {
-    "question": "The body that elects the Indian President is",
-    "options": ["Parliament", "Judiciary", "Electoral College", "Legislative assembly"],
-    "answer": "C",
-    "type": "mcq",
-    "difficulty": "${difficulty}",
-    "tnpscGroup": "Group 1",
-    "explanation": "The Electoral College elects the Indian President",
-    "tamilQuestion": "இந்திய ஜனாதிபதியை தேர்தெடுக்கும் அமைப்பு",
-    "tamilOptions": ["பாராளுமன்றம்", "நீதித்துறை", "தேர்வர் குழு", "சட்டமன்றம்"]
-  }
-  {
-    "question": "Which article of the Indian Constitution deals with Right to Education?",
-    "options": ["Article 19", "Article 21A", "Article 25", "Article 32"],
-    "answer": "B",
-    "type": "mcq",
-    "difficulty": "${difficulty}",
-    "tnpscGroup": "Group 1",
-    "explanation": "Article 21A provides the Right to Education",
-    "tamilQuestion": "இந்திய அரசியலமைப்பின் எந்த பிரிவு கல்வி உரிமையை குறிப்பிடுகிறது?",
-    "tamilOptions": ["பிரிவு 19", "பிரிவு 21A", "பிரிவு 25", "பிரிவு 32"]
-  },
-  {
-    "question": "The first Governor-General of independent India was",
-    "options": ["Lord Mountbatten", "C. Rajagopalachari", "Warren Hastings", "Lord Cornwallis"],
-    "answer": "A",
-    "type": "mcq",
-    "difficulty": "${difficulty}",
-    "tnpscGroup": "Group 1",
-    "explanation": "Lord Mountbatten was the first Governor-General of independent India",
-    "tamilQuestion": "சுதந்திர இந்தியாவின் முதல் கவர்னர் ஜெனரல் யார்?",
-    "tamilOptions": ["லார்ட் மவுண்ட்பேட்டன்", "சி. ராஜகோபாலாச்சாரி", "வாரன் ஹேஸ்டிங்ஸ்", "லார்ட் கார்ன்வாலிஸ்"]
-  }
-]
-
-### CRITICAL EXTRACTION REQUIREMENTS:
-- Extract EVERY SINGLE QUESTION from the text - do not skip any
-- If the paper has 33 questions, your output must contain exactly 33 question objects
-- Process the entire text from beginning to end
-- Do not stop early or summarize - extract each question individually
-- Maintain the exact numbering and content from the original paper
-- Return ONLY the JSON array, no additional text or explanations
-
-### TEXT TO PROCESS
-"""
-${fullOcrText}
-"""`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.1, // Lower temperature for more accurate extraction
-            maxOutputTokens: 8000, // Increased for more questions
-          }
+      // STEP 2: ENRICHMENT (in parallel)
+      console.log("Starting Step 2: Enriching each question with explanations...");
+      const enrichmentPromises = extractedQuestions.map(q => {
+        const enrichmentPrompt = createEnrichmentPrompt(q, outputLanguage);
+        
+        return fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: enrichmentPrompt }] }],
+            generationConfig: {
+                temperature: 0.5,
+                maxOutputTokens: 512,
+                response_mime_type: "application/json",
+            },
+          })
         })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+            if (!data) {
+                return { ...q, type: "mcq", difficulty, explanation: "Could not generate explanation.", tnpscGroup: "N/A" };
+            }
+            const enrichedDataText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            const enrichedData = JSON.parse(enrichedDataText);
+            
+            return {
+                ...q,
+                type: "mcq",
+                difficulty,
+                explanation: enrichedData.explanation || "",
+                tnpscGroup: enrichedData.tnpscGroup || "Group 1",
+            };
+        });
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (!content) {
-        throw new Error('No content received from Gemini API');
-      }
-
-      console.log('Raw questions extraction response:', content);
-
-      // Clean and parse the JSON response
-      const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-      const questions = JSON.parse(cleanedContent);
-      
-      // Format questions for consistency
-      const formattedQuestions = questions.map((q: any) => ({
-        question: q.question,
-        options: q.options || [],
-        answer: q.answer,
-        type: "mcq",
-        difficulty: q.difficulty || difficulty,
-        tnpscGroup: q.tnpscGroup || "Group 1",
-        explanation: q.explanation || "",
-        tamilQuestion: q.tamilQuestion || "",
-        tamilOptions: q.tamilOptions || []
-      }));
+      const enrichedQuestions = await Promise.all(enrichmentPromises);
+      console.log("Enrichment complete.");
 
       return {
-        questions: formattedQuestions,
-        summary: `Extracted ${formattedQuestions.length} questions from question paper`,
+        questions: enrichedQuestions,
+        summary: `Extracted and enriched ${enrichedQuestions.length} questions from the provided document.`,
         keyPoints: [],
         difficulty,
-        totalQuestions: formattedQuestions.length
+        totalQuestions: enrichedQuestions.length,
       };
     }
 
-    // Fallback to original method if no fullOcrText is provided
+    // --- PATH 2: ORIGINAL FALLBACK LOGIC for generating questions from study materials ---
+    console.log("No OCR text provided. Generating new questions from analysis results...");
     const combinedContent = analysisResults.map(result => ({
       keyPoints: result.keyPoints.join('\n'),
       summary: result.summary,
-      tnpscRelevance: result.tnpscRelevance
+      tnpscRelevance: result.tnpscRelevance,
     }));
 
     const languageInstruction = outputLanguage === "tamil" 
       ? "Please provide all questions and answers in Tamil language."
       : "Please provide all questions and answers in English language.";
 
-    const prompt = `
+    const generationPrompt = `
 Based on the following TNPSC study content, generate 15-20 comprehensive questions:
+
+Content Analysis:
+${combinedContent.map((content, index) => `
+Analysis ${index + 1}:
+Key Points: ${content.keyPoints}
+Summary: ${content.summary}
+TNPSC Relevance: ${content.tnpscRelevance}
+`).join('\n')}
+
+Difficulty Level: ${difficulty}
+${languageInstruction}
+
+Return as a JSON array with this exact structure:
+[
+  {
+    "question": "Question text here",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": "A",
+    "type": "mcq",
+    "difficulty": "${difficulty}",
+    "tnpscGroup": "Group 1",
+    "explanation": "Brief explanation of the answer"
+  }
+]
+CRITICAL: The "answer" field MUST contain only the single capital letter of the correct option (A, B, C, or D).
+`;
+    
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: generationPrompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 3000,
+          response_mime_type: "application/json",
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error during question generation! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!content) {
+      throw new Error('No content received from Gemini API during question generation');
+    }
+
+    const questions = JSON.parse(content);
+    
+    return {
+      questions,
+      summary: combinedContent.map(c => c.summary).join(' '),
+      keyPoints: analysisResults.flatMap(r => r.keyPoints),
+      difficulty,
+      totalQuestions: questions.length
+    };
+
+  } catch (error) {
+    console.error('Error in generateQuestions:', error);
+    return {
+        questions: [],
+        summary: "An error occurred during question generation.",
+        keyPoints: [],
+        difficulty,
+        totalQuestions: 0,
+        error: (error as Error).message,
+    };
+  }
+};
 
 Content Analysis:
 ${combinedContent.map((content, index) => `
