@@ -19,7 +19,8 @@ import {
   getQuestionBanks, 
   updateQuestionBank, 
   deleteQuestionBank,
-  createQuestionBankWithOcr // THIS IS THE IMPORTANT NEW FUNCTION
+  createQuestionBankWithOcr, // THIS IS THE IMPORTANT NEW FUNCTION
+  createQuestionBankFromJson // NEW IMPORT
 } from "@/services/adminService";
 // Note: We no longer need to import analyzePdfContent or analyzeImage here directly
 import { toast } from "sonner";
@@ -34,6 +35,8 @@ const QuestionBankManagement = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedJsonFile, setSelectedJsonFile] = useState<File | null>(null); // NEW STATE
+  const [uploadType, setUploadType] = useState<'file' | 'json'>('file'); // NEW STATE
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -65,16 +68,24 @@ const QuestionBankManagement = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-      toast.error("Only image files and PDFs are supported");
+    if (file.type === 'application/json') {
+      setSelectedJsonFile(file);
+      setSelectedFile(null);
+      setUploadType('json');
+    } else if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+      setSelectedFile(file);
+      setSelectedJsonFile(null);
+      setUploadType('file');
+    } else {
+      toast.error("Only image files, PDF files, and JSON files are supported");
       return;
     }
+
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File size must be less than 10MB");
       return;
     }
 
-    setSelectedFile(file);
     if (!formData.title) {
       setFormData(prev => ({ ...prev, title: file.name.replace(/\.[^/.]+$/, "") }));
     }
@@ -94,8 +105,8 @@ const QuestionBankManagement = () => {
       return;
     }
 
-    // When creating a new bank, a file is required.
-    if (!editingId && !selectedFile) {
+    // When creating a new bank, a file or JSON is required.
+    if (!editingId && !selectedFile && !selectedJsonFile) {
       toast.error("Please select a file to upload for the new question bank.");
       return;
     }
@@ -105,8 +116,6 @@ const QuestionBankManagement = () => {
     try {
       if (editingId) {
         // --- UPDATE LOGIC (No file change, just metadata) ---
-        // Note: This logic assumes you don't re-upload/re-process a file when editing.
-        // If you need to replace the file, the logic would be similar to the 'add new' block.
         const updates: Partial<QuestionBank> = {
           title: formData.title.trim(),
           description: formData.description.trim(),
@@ -116,8 +125,7 @@ const QuestionBankManagement = () => {
         await updateQuestionBank(editingId, updates);
         toast.success("Question bank updated successfully!");
       } else {
-        // --- ADD NEW LOGIC (Using the new coordinator function) ---
-        // This is much cleaner and more reliable.
+        // --- ADD NEW LOGIC (Using the new coordinator functions) ---
         const questionBankData = {
             title: formData.title.trim(),
             description: formData.description.trim(),
@@ -125,9 +133,15 @@ const QuestionBankManagement = () => {
             year: formData.year,
         };
         
-        // This single function handles upload, OCR, and saving to Firestore.
-        await createQuestionBankWithOcr(selectedFile!, user.uid, questionBankData);
-        toast.success("Question bank uploaded and processed successfully!");
+        if (selectedJsonFile) {
+          // Use the new JSON upload function
+          await createQuestionBankFromJson(selectedJsonFile, user.uid, questionBankData);
+          toast.success("Question bank created from JSON successfully!");
+        } else if (selectedFile) {
+          // Use the existing file upload function for images/PDFs
+          await createQuestionBankWithOcr(selectedFile, user.uid, questionBankData);
+          toast.success("Question bank uploaded and processed successfully!");
+        }
       }
 
       resetForm();
@@ -150,6 +164,8 @@ const QuestionBankManagement = () => {
       year: bank.year
     });
     setSelectedFile(null); // Clear file selection when editing metadata
+    setSelectedJsonFile(null); // Clear JSON file selection
+    setUploadType('file'); // Reset upload type
     setIsAdding(true);
   };
 
@@ -173,6 +189,8 @@ const QuestionBankManagement = () => {
       year: new Date().getFullYear()
     });
     setSelectedFile(null);
+    setSelectedJsonFile(null); // NEW: Clear selected JSON file
+    setUploadType('file'); // NEW: Reset upload type to default
     setIsAdding(false);
     setEditingId(null);
   };
@@ -183,8 +201,6 @@ const QuestionBankManagement = () => {
     return <div className="text-center py-8">Loading question banks...</div>;
   }
 
-  // --- JSX RENDER ---
-  // (Your existing JSX is fine, no changes needed here. This is a placeholder for brevity.)
   return (
     <div className="space-y-6">
       <Card className="glass-card p-6">
@@ -194,17 +210,59 @@ const QuestionBankManagement = () => {
         </div>
         {isAdding && (
           <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border">
-            {/* ... (Your existing JSX for the form is fine) ... */}
+            {/* NEW: Upload Type Selection */}
             {!editingId && (
-              <div className="space-y-2">
-                <Label>Upload File *</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                  <input type="file" accept="image/*,application/pdf" onChange={handleFileSelect} className="hidden" id="file-upload" />
-                  <label htmlFor="file-upload" className="cursor-pointer">
-                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <p>{selectedFile ? selectedFile.name : "Click to upload or drag and drop"}</p>
-                    <p className="text-sm text-gray-500">PDF, PNG, JPG up to 10MB</p>
-                  </label>
+              <div className="space-y-4">
+                <Label>Upload Type</Label>
+                <div className="flex gap-4 mb-4">
+                  <Button
+                    type="button"
+                    variant={uploadType === 'file' ? 'default' : 'outline'}
+                    onClick={() => setUploadType('file')}
+                    className="flex-1"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Image/PDF File
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={uploadType === 'json' ? 'default' : 'outline'}
+                    onClick={() => setUploadType('json')}
+                    className="flex-1"
+                  >
+                    <Brain className="h-4 w-4 mr-2" />
+                    JSON File
+                  </Button>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>
+                    {uploadType === 'json' ? 'Upload JSON File *' : 'Upload File *'}
+                  </Label>
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                    <input 
+                      type="file" 
+                      accept={uploadType === 'json' ? '.json' : 'image/*,application/pdf'} 
+                      onChange={handleFileSelect} 
+                      className="hidden" 
+                      id="file-upload" 
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p>
+                        {(selectedFile || selectedJsonFile) 
+                          ? (selectedFile?.name || selectedJsonFile?.name) 
+                          : "Click to upload or drag and drop"
+                        }
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {uploadType === 'json' 
+                          ? 'JSON files with OCR text' 
+                          : 'PDF, PNG, JPG up to 10MB'
+                        }
+                      </p>
+                    </label>
+                  </div>
                 </div>
               </div>
             )}
@@ -228,7 +286,6 @@ const QuestionBankManagement = () => {
 
       <Card className="glass-card p-6">
         <h3 className="text-lg font-semibold gradient-text mb-4">Uploaded Question Banks ({questionBanks.length})</h3>
-        {/* ... (Your existing JSX for the list of banks is fine) ... */}
         {questionBanks.length === 0 ? <div className="text-center py-8"><FileText className="h-12 w-12 text-gray-400 mx-auto" /><p>No question banks found.</p></div> : (
           <div className="space-y-4">
             {questionBanks.map((bank) => (
@@ -239,6 +296,7 @@ const QuestionBankManagement = () => {
                     <p className="text-sm text-gray-600">{bank.description}</p>
                     <div className="text-xs text-gray-500"><span>Category: {getCategoryName(bank.categoryId)}</span> • <span>Uploaded: {bank.uploadDate.toDate().toLocaleDateString()}</span></div>
                     {bank.fullOcrText ? <Badge className="mt-2 bg-green-100 text-green-800">OCR Processed</Badge> : <Badge className="mt-2 bg-yellow-100 text-yellow-800" variant="outline">OCR Pending</Badge>}
+                    {bank.fileType === 'json' && <Badge className="mt-2 ml-2 bg-purple-100 text-purple-800">JSON Upload</Badge>}
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={() => handleEdit(bank)} variant="outline" size="sm"><Edit className="h-3 w-3" /> Edit</Button>
