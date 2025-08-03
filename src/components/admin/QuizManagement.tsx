@@ -53,7 +53,8 @@ const QuizManagement = () => {
       setIsLoading(true);
       const [categoriesData, questionBanksData, quizzesData] = await Promise.all([
         getCategories(),
-        getQuestionBanks()
+        getQuestionBanks(),
+        getQuizzes()
       ]);
       setCategories(categoriesData);
       setQuestionBanks(questionBanksData);
@@ -415,7 +416,6 @@ const QuizManagement = () => {
                         className="input-elegant min-h-[60px]"
                       />
                     </div>
-                    </div>
                   </div>
                 </Card>
               ))}
@@ -441,68 +441,69 @@ const QuizManagement = () => {
         ) : (
           <div className="space-y-4">
             {/* FIX: Safely map over the quizzes array */}
-          {quizzes?.filter(q => q != null).map((quiz, index) => (
+            {quizzes?.filter(q => q != null).map((quiz, index) => {
               // Ensure string properties have default values to prevent undefined errors
               const safeDifficulty = quiz.difficulty || 'medium';
               const safeLanguage = quiz.language || 'english';
               
-              <Card key={quiz.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.05}s`}}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <Brain className="h-5 w-5 text-purple-600" />
-                      <h4 className="font-semibold text-gray-800">{quiz.title}</h4>
-                      <Badge className={`${
-                        safeDifficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                        safeDifficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                        safeDifficulty === 'hard' ? 'bg-red-100 text-red-700' :
-                        'bg-purple-100 text-purple-700'
-                      }`}>
-                        {safeDifficulty.toUpperCase()}
-                      </Badge>
-                      {safeLanguage && (
-                        <Badge className="bg-blue-100 text-blue-700">
-                          {safeLanguage === 'tamil' ? 'தமிழ்' : 'English'}
+              return (
+                <Card key={quiz.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.05}s`}}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <Brain className="h-5 w-5 text-purple-600" />
+                        <h4 className="font-semibold text-gray-800">{quiz.title}</h4>
+                        <Badge className={`${
+                          safeDifficulty === 'easy' ? 'bg-green-100 text-green-700' :
+                          safeDifficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          safeDifficulty === 'hard' ? 'bg-red-100 text-red-700' :
+                          'bg-purple-100 text-purple-700'
+                        }`}>
+                          {safeDifficulty.toUpperCase()}
                         </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-600">{quiz.description || 'No description available.'}</p>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                        <span>Questions: {quiz.totalQuestions || 0}</span>
-                        <span>•</span>
-                        <span>Category: {getCategoryName(quiz.categoryId) || 'Unknown'}</span>
-                        <span>•</span>
-                        <span>Source: {getQuestionBankName(quiz.questionBankId) || 'Unknown'}</span>
-                        <span>•</span>
-                        <span>Created: {quiz.creationDate?.toDate()?.toLocaleDateString() || 'N/A'}</span>
+                        {safeLanguage && (
+                          <Badge className="bg-blue-100 text-blue-700">
+                            {safeLanguage === 'tamil' ? 'தமிழ்' : 'English'}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-600">{quiz.description || 'No description available.'}</p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                          <span>Questions: {quiz.totalQuestions || 0}</span>
+                          <span>•</span>
+                          <span>Category: {getCategoryName(quiz.categoryId) || 'Unknown'}</span>
+                          <span>•</span>
+                          <span>Source: {getQuestionBankName(quiz.questionBankId) || 'Unknown'}</span>
+                          <span>•</span>
+                          <span>Created: {quiz.creationDate?.toDate()?.toLocaleDateString() || 'N/A'}</span>
+                        </div>
                       </div>
                     </div>
+                    
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        onClick={() => handleEditQuiz(quiz)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteQuiz(quiz.id, quiz.title)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div className="flex gap-2 ml-4">
-                    <Button
-                      onClick={() => handleEditQuiz(quiz)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      onClick={() => handleDeleteQuiz(quiz.id, quiz.title)}
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+                </Card>
               );
-            ))}
+            })}
           </div>
         )}
       </Card>
