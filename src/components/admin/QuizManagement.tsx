@@ -495,7 +495,7 @@ const QuizManagement = () => {
                         <span>•</span>
                         <span>Source: {getQuestionBankName(quiz.questionBankId)}</span>
                         <span>•</span>
-                        <span>Created: {quiz.creationDate.toDate().toLocaleDateString()}</span>
+                        <span>Created: {quiz.creationDate?.toDate()?.toLocaleDateString() || 'N/A'}</span>
                       </div>
                     </div>
                   </div>
