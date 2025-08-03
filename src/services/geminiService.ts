@@ -143,8 +143,11 @@ The text contains a series of multiple-choice questions. Each question is number
    - All four Tamil options.
    - The correct answer, as indicated by the checkmark.
 3. Preserve the original wording and numbering exactly.
-4. Return the result as a JSON array with this exact format:
+4. CRITICAL: Extract ALL questions found in the text. If there are 50 questions, return 50 questions. Do not limit or summarize.
+5. It is absolutely critical that you extract EVERY SINGLE QUESTION from the provided text. Do not stop early.
+6. Return the result as a JSON array with this exact format:
 
+### EXAMPLE OUTPUT FORMAT (showing multiple questions):
 [
   {
     "question": "The body that elects the Indian President is",
@@ -157,9 +160,37 @@ The text contains a series of multiple-choice questions. Each question is number
     "tamilQuestion": "இந்திய ஜனாதிபதியை தேர்தெடுக்கும் அமைப்பு",
     "tamilOptions": ["பாராளுமன்றம்", "நீதித்துறை", "தேர்வர் குழு", "சட்டமன்றம்"]
   }
+  {
+    "question": "Which article of the Indian Constitution deals with Right to Education?",
+    "options": ["Article 19", "Article 21A", "Article 25", "Article 32"],
+    "answer": "B",
+    "type": "mcq",
+    "difficulty": "${difficulty}",
+    "tnpscGroup": "Group 1",
+    "explanation": "Article 21A provides the Right to Education",
+    "tamilQuestion": "இந்திய அரசியலமைப்பின் எந்த பிரிவு கல்வி உரிமையை குறிப்பிடுகிறது?",
+    "tamilOptions": ["பிரிவு 19", "பிரிவு 21A", "பிரிவு 25", "பிரிவு 32"]
+  },
+  {
+    "question": "The first Governor-General of independent India was",
+    "options": ["Lord Mountbatten", "C. Rajagopalachari", "Warren Hastings", "Lord Cornwallis"],
+    "answer": "A",
+    "type": "mcq",
+    "difficulty": "${difficulty}",
+    "tnpscGroup": "Group 1",
+    "explanation": "Lord Mountbatten was the first Governor-General of independent India",
+    "tamilQuestion": "சுதந்திர இந்தியாவின் முதல் கவர்னர் ஜெனரல் யார்?",
+    "tamilOptions": ["லார்ட் மவுண்ட்பேட்டன்", "சி. ராஜகோபாலாச்சாரி", "வாரன் ஹேஸ்டிங்ஸ்", "லார்ட் கார்ன்வாலிஸ்"]
+  }
 ]
 
-CRITICAL: Extract ALL questions found in the text. If there are 50 questions, return 50 questions. Do not limit or summarize.
+### CRITICAL EXTRACTION REQUIREMENTS:
+- Extract EVERY SINGLE QUESTION from the text - do not skip any
+- If the paper has 33 questions, your output must contain exactly 33 question objects
+- Process the entire text from beginning to end
+- Do not stop early or summarize - extract each question individually
+- Maintain the exact numbering and content from the original paper
+- Return ONLY the JSON array, no additional text or explanations
 
 ### TEXT TO PROCESS
 """
