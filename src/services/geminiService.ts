@@ -8,7 +8,7 @@ import { AnalysisResult, Question, QuestionResult } from "@/types/admin";
 import { parseQuestionPaperOcr } from "../utils/questionPaperParser"; // Ensure correct path
 
 // --- API KEY CONFIGURATION ---
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 if (!GEMINI_API_KEY) {
   console.error("CRITICAL: VITE_GEMINI_API_KEY is not set in your environment file.");
