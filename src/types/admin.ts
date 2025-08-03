@@ -3,7 +3,7 @@ import { Timestamp } from "firebase/firestore";
 export interface Question {
   question: string;
   options?: string[];
-  answer: string;
+  answer: string | null;
   type: "mcq" | "assertion_reason";
   difficulty: string;
   tnpscGroup: string;
