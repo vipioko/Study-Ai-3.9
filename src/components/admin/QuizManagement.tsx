@@ -453,20 +453,25 @@ const QuizManagement = () => {
         )}
       </Card>
 
+// ... (keep the rest of your component code the same)
+
       {/* Existing Quizzes */}
       <Card className="glass-card p-6">
+        {/* FIX: Use optional chaining and a fallback for the length */}
         <h3 className="text-lg font-semibold gradient-text mb-4">
-          Existing Quizzes ({quizzes.length})
+          Existing Quizzes ({quizzes?.length || 0})
         </h3>
         
-        {quizzes.length === 0 ? (
+        {/* FIX: Check the length safely */}
+        {(quizzes?.length || 0) === 0 ? (
           <div className="text-center py-8">
             <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No quizzes found. Generate your first quiz to get started.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {quizzes.map((quiz, index) => (
+            {/* FIX: Safely map over the quizzes array */}
+            {quizzes?.map((quiz, index) => (
               <Card key={quiz.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.05}s`}}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -479,21 +484,23 @@ const QuizManagement = () => {
                         quiz.difficulty === 'hard' ? 'bg-red-100 text-red-700' :
                         'bg-purple-100 text-purple-700'
                       }`}>
-                        {quiz.difficulty.toUpperCase()}
+                        {quiz.difficulty?.toUpperCase() || 'UNKNOWN'}
                       </Badge>
-                      <Badge className="bg-blue-100 text-blue-700">
-                        {quiz.language === 'tamil' ? 'தமிழ்' : 'English'}
-                      </Badge>
+                      {quiz.language && (
+                        <Badge className="bg-blue-100 text-blue-700">
+                          {quiz.language === 'tamil' ? 'தமிழ்' : 'English'}
+                        </Badge>
+                      )}
                     </div>
                     
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-600">{quiz.description}</p>
+                      <p className="text-sm text-gray-600">{quiz.description || 'No description available.'}</p>
                       <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                        <span>Questions: {quiz.totalQuestions}</span>
+                        <span>Questions: {quiz.totalQuestions || 0}</span>
                         <span>•</span>
-                        <span>Category: {getCategoryName(quiz.categoryId)}</span>
+                        <span>Category: {getCategoryName(quiz.categoryId) || 'Unknown'}</span>
                         <span>•</span>
-                        <span>Source: {getQuestionBankName(quiz.questionBankId)}</span>
+                        <span>Source: {getQuestionBankName(quiz.questionBankId) || 'Unknown'}</span>
                         <span>•</span>
                         <span>Created: {quiz.creationDate?.toDate()?.toLocaleDateString() || 'N/A'}</span>
                       </div>
