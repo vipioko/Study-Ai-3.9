@@ -329,7 +329,7 @@ const QuizManagement = () => {
 
             {/* Questions Editor */}
             <div className="space-y-4 max-h-[500px] overflow-y-auto p-2">
-              {generatedQuestions.map((question, index) => (
+              {generatedQuestions.filter(q => q != null).map((question, index) => (
                 <Card key={index} className="p-4 bg-white">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -343,69 +343,78 @@ const QuizManagement = () => {
                         {question.difficulty.toUpperCase()}
                       </Badge>
                     </div>
-// In src/components/admin/QuizManagement.tsx
+                    
+                    <div className="space-y-2">
+                      <Label>Question</Label>
+                      <Textarea
+                        value={question.question || ''}
+                        onChange={(e) => updateQuestion(index, 'question', e.target.value)}
+                        className="input-elegant min-h-[60px]"
+                      />
+                    </div>
 
-// ... inside the .map for generatedQuestions ...
-<div className="space-y-2">
-  <Label>Question</Label>
-  <Textarea
-    value={question.question || ''} // FIX HERE
-    onChange={(e) => updateQuestion(index, 'question', e.target.value)}
-    className="input-elegant min-h-[60px]"
-  />
-</div>
+                    {question.tamilQuestion && (
+                      <div className="space-y-2">
+                        <Label>Tamil Question</Label>
+                        <Textarea
+                          value={question.tamilQuestion || ''}
+                          onChange={(e) => updateQuestion(index, 'tamilQuestion', e.target.value)}
+                          className="input-elegant min-h-[60px]"
+                          placeholder="Tamil question text..."
+                        />
+                      </div>
+                    )}
 
-{question.tamilQuestion && (
-  <div className="space-y-2">
-    <Label>Tamil Question</Label>
-    <Textarea
-      value={question.tamilQuestion || ''} // FIX HERE
-      onChange={(e) => updateQuestion(index, 'tamilQuestion', e.target.value)}
-      className="input-elegant min-h-[60px]"
-      placeholder="Tamil question text..."
-    />
-  </div>
-)}
+                    {question.options && question.options.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Options</Label>
+                        <div className="space-y-2">
+                          {question.options.map((option, optIndex) => (
+                            <div key={optIndex} className="flex items-center gap-2">
+                              <Badge className="w-8 h-8 flex items-center justify-center">
+                                {String.fromCharCode(65 + optIndex)}
+                              </Badge>
+                              <Input
+                                value={option || ''}
+                                onChange={(e) => updateQuestionOption(index, optIndex, e.target.value)}
+                                className="input-elegant"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-// ... inside the options map ...
-<Input
-  value={option || ''} // FIX HERE
-  onChange={(e) => updateQuestionOption(index, optIndex, e.target.value)}
-  className="input-elegant"
-/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Correct Answer</Label>
+                        <Input
+                          value={question.answer || ''}
+                          onChange={(e) => updateQuestion(index, 'answer', e.target.value)}
+                          placeholder="A, B, C, or D"
+                          className="input-elegant"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>TNPSC Group</Label>
+                        <Input
+                          value={question.tnpscGroup || ''}
+                          onChange={(e) => updateQuestion(index, 'tnpscGroup', e.target.value)}
+                          placeholder="e.g., Group 1"
+                          className="input-elegant"
+                        />
+                      </div>
+                    </div>
 
-// ... and so on for every Input and Textarea ...
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div className="space-y-2">
-    <Label>Correct Answer</Label>
-    <Input
-      value={question.answer || ''} // FIX HERE
-      onChange={(e) => updateQuestion(index, 'answer', e.target.value)}
-      placeholder="A, B, C, or D"
-      className="input-elegant"
-    />
-  </div>
-  <div className="space-y-2">
-    <Label>TNPSC Group</Label>
-    <Input
-      value={question.tnpscGroup || ''} // FIX HERE
-      onChange={(e) => updateQuestion(index, 'tnpscGroup', e.target.value)}
-      placeholder="e.g., Group 1"
-      className="input-elegant"
-    />
-  </div>
-</div>
-
-<div className="space-y-2">
-  <Label>Explanation</Label>
-  <Textarea
-    value={question.explanation || ''} // FIX HERE
-    onChange={(e) => updateQuestion(index, 'explanation', e.target.value)}
-    placeholder="Explanation for the correct answer"
-    className="input-elegant min-h-[60px]"
-  />
-</div>
+                    <div className="space-y-2">
+                      <Label>Explanation</Label>
+                      <Textarea
+                        value={question.explanation || ''}
+                        onChange={(e) => updateQuestion(index, 'explanation', e.target.value)}
+                        placeholder="Explanation for the correct answer"
+                        className="input-elegant min-h-[60px]"
+                      />
+                    </div>
                     </div>
                   </div>
                 </Card>
@@ -432,7 +441,7 @@ const QuizManagement = () => {
         ) : (
           <div className="space-y-4">
             {/* FIX: Safely map over the quizzes array */}
-            {quizzes?.map((quiz, index) => (
+          {quizzes?.filter(q => q != null).map((quiz, index) => (
               <Card key={quiz.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.05}s`}}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
