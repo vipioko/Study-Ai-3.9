@@ -1,279 +1,207 @@
+// src/services/questionPaperParser.ts
+
 import { Question } from "@/types/admin";
 
 /**
- * Parses OCR text from a TNPSC question paper and extracts questions deterministically.
- * This function acts as a "copier" rather than a "generator" - it extracts existing questions
- * from the OCR text without using AI to interpret or modify them.
+ * Parses OCR text from a question paper. This version is more robust
+ * against common OCR formatting errors.
  */
 export const parseQuestionPaperOcr = (ocrText: string): Question[] => {
-  const questions: Question[] = [];
-  
   try {
-    // Split the text into potential question blocks
-    // Look for patterns like "1.", "2.", etc. followed by question content
     const questionBlocks = splitIntoQuestionBlocks(ocrText);
-    
+    const questions: Question[] = [];
+
     for (const block of questionBlocks) {
       const parsedQuestion = parseQuestionBlock(block);
       if (parsedQuestion) {
         questions.push(parsedQuestion);
       }
     }
-    
-    console.log(`Parsed ${questions.length} questions from OCR text`);
-    return questions;
+
+    console.log(`[Parser] Successfully parsed ${questions.length} questions from OCR text.`);
+    const validatedQuestions = validateQuestionData(questions);
+    console.log(`[Parser] After validation, ${validatedQuestions.length} questions remain.`);
+
+    return validatedQuestions;
   } catch (error) {
-    console.error('Error parsing question paper OCR:', error);
+    console.error('[Parser] A critical error occurred during parsing:', error);
     return [];
   }
 };
 
 /**
- * Splits the OCR text into individual question blocks
+ * Splits the OCR text into blocks, each containing one question.
+ * This is the most critical step.
  */
 function splitIntoQuestionBlocks(ocrText: string): string[] {
-  // Pattern to match question numbers (1., 2., 3., etc.)
-  // Added `|` to the start of the regex to ensure it matches the very beginning of the string
-  const questionNumberPattern = /(?:^|\n|^)\s*(\d+)\s*[\.\)]/gm; // MODIFIED REGEX
+  // This regex is crucial. It looks for a number (e.g., "1.", "2)") that is either
+  // at the start of the file or at the beginning of a new line.
+  const questionStartRegex = /(?:\n|^)\s*(\d+)\s*[.)]/g;
+
   const blocks: string[] = [];
-  
   let lastIndex = 0;
   let match;
-  
-  // Find all question number markers
-  const markers = [];
-  while ((match = questionNumberPattern.exec(ocrText)) !== null) {
-    markers.push({ index: match.index, number: parseInt(match[1], 10) });
+  const startMarkers: number[] = [];
+
+  // First, find all potential question start indices
+  while ((match = questionStartRegex.exec(ocrText)) !== null) {
+    startMarkers.push(match.index);
   }
 
-  if (markers.length === 0) {
+  if (startMarkers.length === 0) {
+    console.warn("[Parser] No question start markers (e.g., '1.', '2.') found. The document format may be unsupported.");
     return [];
   }
 
-  // Extract content between markers
-  for (let i = 0; i < markers.length; i++) {
-    const currentMarker = markers[i];
-    const nextMarker = markers[i + 1];
-    
-    const blockText = ocrText.substring(currentMarker.index, nextMarker ? nextMarker.index : ocrText.length);
-    blocks.push(blockText.trim());
+  // Create blocks from the text between the markers
+  for (let i = 0; i < startMarkers.length; i++) {
+    const start = startMarkers[i];
+    const end = i + 1 < startMarkers.length ? startMarkers[i + 1] : ocrText.length;
+    const blockText = ocrText.substring(start, end).trim();
+
+    if (blockText.length > 20) { // Filter out empty or tiny blocks
+      blocks.push(blockText);
+    }
   }
   
-  return blocks.filter(block => block.length > 10); // Filter out very short blocks
+  console.log(`[Parser] Split OCR text into ${blocks.length} potential question blocks.`);
+  return blocks;
 }
 
 /**
- * Parses a single question block to extract question, options, and answer
+ * Parses a single block of text to extract a full Question object.
  */
 function parseQuestionBlock(block: string): Question | null {
-  try {
-    // Extract question number
-    const questionNumberMatch = block.match(/^\s*(\d+)\s*\./);
-    if (!questionNumberMatch) {
-      return null;
-    }
-    
-    const questionNumber = parseInt(questionNumberMatch[1]);
-    
-    // Extract English question (usually comes first)
-    const englishQuestion = extractEnglishQuestion(block);
-    if (!englishQuestion) {
-      return null;
-    }
-    
-    // Extract English options (A, B, C, D)
-    const englishOptions = extractEnglishOptions(block);
-    if (englishOptions.length < 2) {
-      return null; // Need at least 2 options
-    }
-    
-    // Extract Tamil question and options
-    const tamilQuestion = extractTamilQuestion(block);
-    const tamilOptions = extractTamilOptions(block);
-    
-    // Find the correct answer (look for checkmark ✓)
-    const correctAnswer = findCorrectAnswer(block);
-    if (!correctAnswer) {
-      return null;
-    }
-    
-    return {
-      question: englishQuestion,
-      options: englishOptions,
-      answer: correctAnswer,
-      type: "mcq",
-      difficulty: "medium", // Default difficulty
-      tnpscGroup: "Group 1", // Default group
-      tamilQuestion: tamilQuestion || undefined,
-      tamilOptions: tamilOptions.length > 0 ? tamilOptions : undefined
-    };
-  } catch (error) {
-    console.error('Error parsing question block:', error);
+  // Find the positions of English and Tamil options first. This helps determine
+  // where the question text ends and options begin.
+  const englishOptionsMatch = findOptions(block, /[A-D][.)]/g);
+  const tamilOptionsMatch = findOptions(block, /[அ-ஈ][.)]/g);
+
+  // If no options are found, it's not a valid MCQ block.
+  if (englishOptionsMatch.options.length < 2) {
     return null;
   }
-}
 
-/**
- * Extracts the English question text from a question block
- */
-function extractEnglishQuestion(block: string): string | null {
-  // Remove the question number prefix, now supporting both . and )
-  const withoutNumber = block.replace(/^\s*\d+\s*[\.\)]/, '').trim(); // MODIFIED REGEX
-  
-  // Look for the question text before the first option (A) or before Tamil content
-  const patterns = [
-    // Question ends before option (A, B, C, D) with common delimiters
-    /^(.*?)(?:\s*[\(]?[A-D][\.\)]|\s*[\(]?[A-D][\)]|\s*[\(]?[A-D]\s+)/s, // More flexible option start
-    // Pattern 2: Question ends before Tamil script
-    /^(.*?)(?=[\u0B80-\u0BFF])/s,
-    // Fallback: Take text until a newline followed by a capital letter (potential option)
-    // This helps if options are on new lines and not perfectly formatted
-    /^([^\n]+?)(?=\n\s*[A-Z][\.\)]|\n\s*[\u0B80-\u0BFF]|$)/s,
-    // Fallback: Take text until a newline followed by a capital letter (potential option)
-    // Pattern 3: Take first substantial line if no clear delimiter
-    /^([^\n]{20,})/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = withoutNumber.match(pattern);
-    if (match && match[1]) {
-      const question = match[1].trim();
-      // Clean up common OCR artifacts
-      const cleaned = question
-        .replace(/\s+/g, ' ')
-        .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-        .trim();
-      
-      if (cleaned.length > 10) {
-        return cleaned;
-      }
-    }
+  // The question text is everything before the first option.
+  const endOfQuestionIndex = englishOptionsMatch.firstOptionIndex;
+  const questionText = block.substring(0, endOfQuestionIndex).trim();
+
+  const englishQuestion = extractQuestionText(questionText, 'english');
+  const tamilQuestion = extractQuestionText(questionText, 'tamil');
+
+  // Now, find the answer
+  const answer = findCorrectAnswer(block);
+
+  // Final validation: we need the core components to create a question.
+  if (!englishQuestion || englishOptionsMatch.options.length < 2 || !answer) {
+    return null;
   }
-  
-  return null;
+
+  return {
+    question: englishQuestion,
+    options: englishOptionsMatch.options,
+    answer: answer,
+    type: "mcq",
+    difficulty: "medium", // Default difficulty
+    tnpscGroup: "Group 1", // Default group
+    explanation: "", // Default empty explanation
+    tamilQuestion: tamilQuestion || undefined,
+    tamilOptions: tamilOptionsMatch.options.length > 0 ? tamilOptionsMatch.options : undefined,
+  };
 }
 
+// --- HELPER FUNCTIONS ---
+
 /**
- * Extracts English options (A, B, C, D) from a question block
+ * Generic function to find and extract options (both English and Tamil).
  */
-function extractEnglishOptions(block: string): string[] {
+function findOptions(block: string, regex: RegExp): { options: string[], firstOptionIndex: number } {
   const options: string[] = [];
-  // Simplified pattern: look for A, B, C, D followed by common delimiters and text
-  // Capture the option letter and the text
-  const optionRegex = /([A-D])[\.\)]?\s*([^\n\r]+?)(?=\s*[A-D][\.\)]?|\s*[\u0B80-\u0BFF]|$)/g; // MODIFIED REGEX
-  
   let match;
-  const tempOptions: { [key: string]: string } = {};
-  
-  while ((match = optionRegex.exec(block)) !== null) {
-    const optionLetter = match[1];
-    const optionText = match[2].trim();
+  let firstOptionIndex = block.length;
+
+  while ((match = regex.exec(block)) !== null) {
+    if (match.index < firstOptionIndex) {
+      firstOptionIndex = match.index;
+    }
+    // Find the text for this option
+    const nextOptionMatch = regex.exec(block);
+    const endOfOption = nextOptionMatch ? nextOptionMatch.index : block.length;
     
-    if (optionText.length > 1) { // Option text should be more than just a letter
-      tempOptions[optionLetter] = optionText
-        .replace(/\s+/g, ' ')
-        .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-        .trim();
-    }
-  }
-  
-  // Convert to ordered array (A, B, C, D)
-  const orderedOptions = ['A', 'B', 'C', 'D']
-    .map(letter => tempOptions[letter])
-    .filter(option => option && option.length > 0);
-  
-  return orderedOptions;
-}
+    // Reset regex index for next iteration
+    regex.lastIndex = match.index + 1;
 
-/**
- * Extracts Tamil question text from a question block
- */
-function extractTamilQuestion(block: string): string | null {
-  // Look for Tamil script (Unicode range U+0B80-U+0BFF)
-  const tamilPattern = /([\u0B80-\u0BFF][^\n\r]*?)(?=\s*[\u0B80-\u0BFF]*\s*[அ-ஈ]\)|$)/;
-  const match = block.match(tamilPattern);
-  
-  if (match && match[1]) {
-    return match[1].trim();
-  }
-  
-  return null;
-}
+    let optionText = block.substring(match.index, endOfOption)
+      .replace(match[0], '') // Remove the option marker (e.g., "A)")
+      .replace(/[\n\r]/g, ' ') // Replace newlines with spaces
+      .trim();
 
-/**
- * Extracts Tamil options from a question block
- */
-function extractTamilOptions(block: string): string[] {
-  const options: string[] = [];
-  
-  // Pattern to match Tamil options like "அ)", "ஆ)", etc.
-  const tamilOptionPattern = /([அ-ஈ])\)\s*([^\n\r]+?)(?=\s*[அ-ஈ]\)|$)/g;
-  let match;
-  
-  while ((match = tamilOptionPattern.exec(block)) !== null) {
-    const optionText = match[2].trim();
-    if (optionText.length > 2) {
+    // Clean up checkmark artifacts
+    optionText = optionText.replace(/[✓√]/g, '').trim();
+
+    if (optionText) {
       options.push(optionText);
     }
   }
-  
-  return options;
+
+  return { options, firstOptionIndex };
 }
 
 /**
- * Finds the correct answer by looking for checkmark symbols or explicit markers
+ * Extracts either English or Tamil text from a string block.
+ */
+function extractQuestionText(text: string, language: 'english' | 'tamil'): string | null {
+  const englishRegex = /[a-zA-Z]/;
+  const tamilRegex = /[\u0B80-\u0BFF]/;
+  
+  const lines = text.split('\n').filter(line => {
+    const targetRegex = language === 'english' ? englishRegex : tamilRegex;
+    const oppositeRegex = language === 'english' ? tamilRegex : englishRegex;
+    // Keep line if it has target language and NOT the opposite language
+    // This helps separate mixed-language lines
+    return targetRegex.test(line) && !oppositeRegex.test(line);
+  });
+  
+  const result = lines.join(' ').replace(/^\d+\s*[.)]/, '').trim();
+  return result.length > 5 ? result : null;
+}
+
+/**
+ * Finds the correct answer by looking for checkmarks or keywords.
+ * BUG FIX: Returns null instead of [] on failure.
  */
 function findCorrectAnswer(block: string): string | null {
-  // Prioritize checkmark patterns
-  const checkmarkPatterns = [
-    /\(?([A-D])\)?\s*[^✓√]*?[✓√]/g, // Option followed by checkmark
-    /[✓√]\s*\(?([A-D])\)?/g,       // Checkmark followed by option
-    /\(?([A-D])\)?\s*[^✓√]*?\s*(?:Correct|Answer|Ans)\b/i // Option followed by "Correct" etc.
-  ];
-  
-  for (const pattern of checkmarkPatterns) {
-    let match;
-    while ((match = pattern.exec(block)) !== null) {
-      const optionLetter = match[1];
-      if (['A', 'B', 'C', 'D'].includes(optionLetter)) {
-        return optionLetter;
-      }
-    }
-  }
-  
-  // Fallback: look for explicit "Answer: A" or similar
-  const explicitAnswerPatterns = [
-    /(?:Correct|Answer|Ans)\s*:\s*([A-D])/i, // e.g., "Answer: A"
-    /Option\s*([A-D])\s*is\s*correct/i      // e.g., "Option B is correct"
-  ];
+  // Pattern: Look for an option letter (A, B, C, D) that is near a checkmark.
+  const checkmarkPattern = /\s*\(?([A-D])\)?\s*.*[✓√]/;
+  const lines = block.split('\n');
 
-  for (const pattern of explicitAnswerPatterns) {
-    const match = block.match(pattern);
+  for (const line of lines) {
+    const match = line.match(checkmarkPattern);
     if (match && match[1]) {
       return match[1].toUpperCase();
     }
   }
-  
-  return [];
+
+  // Fallback: Look for "Answer: A"
+  const explicitAnswerPattern = /(?:Answer|Ans|விடை)\s*[:]?\s*\(?([A-D])\)?/i;
+  const blockMatch = block.match(explicitAnswerPattern);
+  if (blockMatch && blockMatch[1]) {
+    return blockMatch[1].toUpperCase();
+  }
+
+  return null; // CRITICAL FIX: Return null if no answer is found
 }
+
 /**
- * Validates and cleans extracted question data
+ * Final validation to ensure data quality before it's used.
  */
 export const validateQuestionData = (questions: Question[]): Question[] => {
-  return questions.filter(q => {
-    // Basic validation
-    if (!q.question || q.question.length < 10) return false;
-    if (!q.options || q.options.length < 2) return false;
-    if (!q.answer || !['A', 'B', 'C', 'D'].includes(q.answer)) return false;
-    
-    return true;
-  }).map(q => ({
-    ...q,
-    // Ensure consistent formatting
-    question: q.question.trim(),
-    options: q.options?.map(opt => opt.trim()),
-    answer: q.answer.toUpperCase(),
-    tamilQuestion: q.tamilQuestion?.trim(),
-    tamilOptions: q.tamilOptions?.map(opt => opt.trim())
-  }));
+  return questions.filter(q => 
+    q.question &&
+    q.question.length >= 10 &&
+    q.options &&
+    q.options.length >= 2 && // Usually 4, but let's be flexible
+    q.answer &&
+    ['A', 'B', 'C', 'D'].includes(q.answer)
+  );
 };
