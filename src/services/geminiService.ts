@@ -119,6 +119,33 @@ MEMORY TIP GUIDELINES:
   }
 };
 
+const createEnrichmentPrompt = (question: any, outputLanguage: "english" | "tamil" = "english") => {
+  const languageInstruction = outputLanguage === "tamil" 
+    ? "Please provide all responses in Tamil language."
+    : "Please provide all responses in English language.";
+
+  return `
+You are enriching an extracted question from a TNPSC question paper. Your job is to add explanation and identify the TNPSC group.
+
+${languageInstruction}
+
+Question: ${question.question}
+Options: ${question.options?.join(', ') || 'N/A'}
+Answer: ${question.answer}
+
+Please provide enrichment in this JSON format:
+{
+  "explanation": "Brief explanation of why this answer is correct",
+  "tnpscGroup": "Group 1" | "Group 2" | "Group 4"
+}
+
+Focus on:
+- Providing a clear, concise explanation
+- Correctly identifying which TNPSC group this question belongs to
+- Keep explanations educational and helpful for exam preparation
+`;
+};
+
 export const generateQuestions = async (
   analysisResults: AnalysisResult[],
   difficulty: string = "medium",
