@@ -2,6 +2,7 @@
 // Make sure these paths are correct for your project structure
 import { AnalysisResult, QuestionResult } from "@/components/StudyAssistant";
 import { extractTextFromPdfPage, extractPageRangeFromOcr } from "@/utils/pdfReader";
+import { parseQuestionPaperOcr, validateQuestionData } from "@/utils/questionPaperParser";
 
 // It's good practice to have your API key in an environment file.
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyAwPyxCmxk6oovqNuwCyK5AOjdgepuTXzk";
@@ -250,18 +251,19 @@ export const generateQuestions = async (
   try {
     // --- PATH 1: "EXTRACT, THEN ENRICH" for Question Papers ---
     if (fullOcrText) {
-      // STEP 1: PURE EXTRACTION
-      console.log("Starting Step 1: Extracting questions from OCR text...");
-      const extractedQuestions = await extractQuestionsFromOcr(fullOcrText, GEMINI_API_KEY);
-      console.log(`Extraction complete. Found ${extractedQuestions.length} questions.`);
+      // STEP 1: DETERMINISTIC OCR PARSING (No AI - Direct Extraction)
+      console.log("Starting Step 1: Parsing questions from OCR text using deterministic logic...");
+      const extractedQuestions = parseQuestionPaperOcr(fullOcrText);
+      const validatedQuestions = validateQuestionData(extractedQuestions);
+      console.log(`OCR parsing complete. Found ${validatedQuestions.length} valid questions.`);
 
-      if (!extractedQuestions || extractedQuestions.length === 0) {
+      if (!validatedQuestions || validatedQuestions.length === 0) {
         throw new Error("Extraction resulted in zero questions. The document might not be a question paper or the text is unreadable.");
       }
 
-      // STEP 2: ENRICHMENT (in parallel)
+      // STEP 2: AI ENRICHMENT (Only for explanations and metadata)
       console.log("Starting Step 2: Enriching each question with explanations...");
-      const enrichmentPromises = extractedQuestions.map(q => {
+      const enrichmentPromises = validatedQuestions.map(q => {
         const enrichmentPrompt = createEnrichmentPrompt(q, outputLanguage);
         
         return fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
@@ -299,7 +301,7 @@ export const generateQuestions = async (
 
       return {
         questions: enrichedQuestions,
-        summary: `Extracted and enriched ${enrichedQuestions.length} questions from the provided document.`,
+        summary: `Extracted ${enrichedQuestions.length} questions directly from the question paper using OCR parsing.`,
         keyPoints: [],
         difficulty,
         totalQuestions: enrichedQuestions.length,

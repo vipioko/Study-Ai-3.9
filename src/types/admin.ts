@@ -1,5 +1,16 @@
 import { Timestamp } from "firebase/firestore";
-import { Question } from "@/components/StudyAssistant";
+
+export interface Question {
+  question: string;
+  options?: string[];
+  answer: string;
+  type: "mcq" | "assertion_reason";
+  difficulty: string;
+  tnpscGroup: string;
+  explanation?: string;
+  tamilQuestion?: string;
+  tamilOptions?: string[];
+}
 
 export interface Category {
   id: string;

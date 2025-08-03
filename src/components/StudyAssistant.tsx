@@ -49,6 +49,8 @@ export interface Question {
   difficulty: string;
   tnpscGroup: string;
   explanation?: string;
+  tamilQuestion?: string;
+  tamilOptions?: string[];
 }
 
 export interface QuestionResult {

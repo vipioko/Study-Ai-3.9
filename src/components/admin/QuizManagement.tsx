@@ -10,8 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Brain, Edit, Trash2, Save, X, Plus, Zap, FileText, Languages } from "lucide-react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/config/firebase";
-import { Category, QuestionBank, Quiz } from "@/types/admin";
-import { Question } from "@/components/StudyAssistant";
+import { Category, QuestionBank, Quiz, Question } from "@/types/admin";
 import { 
   getCategories, 
   getQuestionBanks, 
@@ -81,12 +80,12 @@ const QuizManagement = () => {
         return;
       }
 
-      // Check if we have full OCR text for exact question extraction
+      // Use deterministic OCR parsing for question papers
       if (questionBank.fullOcrText) {
-        // Use the new extraction method with full OCR text
+        // Direct extraction from OCR text (no AI generation)
         const result = await generateQuestions([], "medium", quizForm.language, questionBank.fullOcrText);
         setGeneratedQuestions(result.questions || []);
-        toast.success(`Extracted ${result.questions?.length || 0} questions from the question paper!`);
+        toast.success(`Copied ${result.questions?.length || 0} questions directly from the question paper!`);
       } else if (questionBank.analysisData) {
         // Fallback to analysis-based generation for older question banks
         const analysisResults = [{
@@ -99,7 +98,7 @@ const QuizManagement = () => {
 
         const result = await generateQuestions(analysisResults, "medium", quizForm.language);
         setGeneratedQuestions(result.questions || []);
-        toast.success(`Generated ${result.questions?.length || 0} questions from analysis data!`);
+        toast.success(`Generated ${result.questions?.length || 0} questions from study material analysis!`);
       } else {
         toast.error("Question bank has no content data available for quiz generation");
         return;
@@ -374,6 +373,18 @@ const QuizManagement = () => {
                       />
                     </div>
 
+                    {question.tamilQuestion && (
+                      <div className="space-y-2">
+                        <Label>Tamil Question</Label>
+                        <Textarea
+                          value={question.tamilQuestion}
+                          onChange={(e) => updateQuestion(index, 'tamilQuestion', e.target.value)}
+                          className="input-elegant min-h-[60px]"
+                          placeholder="Tamil question text..."
+                        />
+                      </div>
+                    )}
+
                     {question.options && (
                       <div className="space-y-2">
                         <Label>Options</Label>
@@ -394,6 +405,36 @@ const QuizManagement = () => {
                       </div>
                     )}
 
+                    {question.tamilOptions && question.tamilOptions.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Tamil Options</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {question.tamilOptions.map((option, optIndex) => {
+                            const tamilLetter = ['அ', 'ஆ', 'இ', 'ஈ'][optIndex] || `${optIndex + 1}`;
+                            return (
+                              <div key={optIndex} className="flex items-center gap-2">
+                                <span className="font-bold text-purple-600 bg-purple-100 px-2 py-1 rounded text-sm">
+                                  {tamilLetter}
+                                </span>
+                                <Input
+                                  value={option}
+                                  onChange={(e) => {
+                                    setGeneratedQuestions(prev => prev.map((q, i) => 
+                                      i === index ? {
+                                        ...q,
+                                        tamilOptions: q.tamilOptions?.map((opt, oi) => oi === optIndex ? e.target.value : opt) || []
+                                      } : q
+                                    ));
+                                  }}
+                                  className="input-elegant"
+                                  placeholder="Tamil option text..."
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Correct Answer</Label>
