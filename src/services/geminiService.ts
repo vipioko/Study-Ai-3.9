@@ -1,5 +1,6 @@
 import { AnalysisResult, QuestionResult } from "@/components/StudyAssistant";
 import { extractTextFromPdfPage, extractPageRangeFromOcr } from "@/utils/pdfReader";
+import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
@@ -129,7 +130,7 @@ export const generateQuestions = async (
     if (fullOcrText) {
       // STEP 1: PURE EXTRACTION
       console.log("Starting Step 1: Extracting questions from OCR text...");
-      const extractedQuestions = await extractQuestionsFromOcr(fullOcrText, GEMINI_API_KEY);
+      const extractedQuestions = await parseQuestionPaperOcr(fullOcrText, GEMINI_API_KEY);
       console.log(`Extraction complete. Found ${extractedQuestions.length} questions.`);
 
       if (!extractedQuestions || extractedQuestions.length === 0) {
