@@ -442,6 +442,10 @@ const QuizManagement = () => {
           <div className="space-y-4">
             {/* FIX: Safely map over the quizzes array */}
           {quizzes?.filter(q => q != null).map((quiz, index) => (
+              // Ensure string properties have default values to prevent undefined errors
+              const safeDifficulty = quiz.difficulty || 'medium';
+              const safeLanguage = quiz.language || 'english';
+              
               <Card key={quiz.id} className="p-4 hover-lift animate-fadeInUp" style={{animationDelay: `${index * 0.05}s`}}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -449,16 +453,16 @@ const QuizManagement = () => {
                       <Brain className="h-5 w-5 text-purple-600" />
                       <h4 className="font-semibold text-gray-800">{quiz.title}</h4>
                       <Badge className={`${
-                        quiz.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                        quiz.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                        quiz.difficulty === 'hard' ? 'bg-red-100 text-red-700' :
+                        safeDifficulty === 'easy' ? 'bg-green-100 text-green-700' :
+                        safeDifficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        safeDifficulty === 'hard' ? 'bg-red-100 text-red-700' :
                         'bg-purple-100 text-purple-700'
                       }`}>
-                        {quiz.difficulty?.toUpperCase() || 'UNKNOWN'}
+                        {safeDifficulty.toUpperCase()}
                       </Badge>
-                      {quiz.language && (
+                      {safeLanguage && (
                         <Badge className="bg-blue-100 text-blue-700">
-                          {quiz.language === 'tamil' ? 'தமிழ்' : 'English'}
+                          {safeLanguage === 'tamil' ? 'தமிழ்' : 'English'}
                         </Badge>
                       )}
                     </div>
@@ -497,6 +501,7 @@ const QuizManagement = () => {
                   </div>
                 </div>
               </Card>
+              );
             ))}
           </div>
         )}
