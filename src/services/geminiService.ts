@@ -41,7 +41,7 @@ Please provide a comprehensive analysis in the following JSON format:
     {
       "point": "Specific factual point (max 2 sentences)",
       "importance": "high/medium/low",
-      "memoryTip": "Creative and memorable tip (concise)"
+      "memoryTip": "Shorter and crisper version of the point for quick memorization (e.g., using a mnemonic, acronym, or rhyming phrase)."
     }
   ],
   "summary": "Overall summary of the content (concise)",
@@ -57,8 +57,8 @@ Focus on:
 - Provide creative memory tips using mnemonics, associations, or patterns
 
 MEMORY TIP GUIDELINES:
-- Use acronyms, rhymes, visual imagery, or story-based associations
-- Keep tips fun, quirky, and unforgettable.
+- **Use acronyms, rhymes, visual imagery, or story-based associations.**
+- **Keep tips fun, quirky, and unforgettable.**
 `;
 
   const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -115,7 +115,7 @@ Please provide a comprehensive analysis in the following JSON format:
     {
       "point": "Specific factual point (max 2 sentences)",
       "importance": "high/medium/low",
-      "memoryTip": "Creative and memorable tip (concise)"
+      "memoryTip": "Shorter and crisper version of the point for quick memorization (e.g., using a mnemonic, acronym, or rhyming phrase)."
     }
   ],
   "summary": "Overall summary of the content (concise)",
@@ -131,8 +131,8 @@ Focus on:
 - Provide creative memory tips using mnemonics, associations, or patterns
 
 MEMORY TIP GUIDELINES:
-- Use acronyms, rhymes, visual imagery, or story-based associations
-- Keep tips fun, quirky, and unforgettable.
+- **Use acronyms, rhymes, visual imagery, or story-based associations.**
+- **Keep tips fun, quirky, and unforgettable.**
 `;
 
     const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
