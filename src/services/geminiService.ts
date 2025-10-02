@@ -5,11 +5,12 @@ import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
-  // FIX APPLIED HERE: Changed from "gemini-1.5-flash" (which was giving 404) 
-  // to the newer, stable, and recommended multimodal model "gemini-2.5-flash".
-  primaryModel: "gemini-2.5-flash", 
-  // Updated fallback list: kept the versioned name for 1.5 and removed the deprecated 'gemini-pro-vision'.
-  fallbackModels: ["gemini-1.5-flash-001"],
+  // FIX APPLIED HERE: Changed from "gemini-1.5-flash" (alias, which was giving 404) 
+  // to the versioned model name "gemini-1.5-flash-001" which is often more stable/available 
+  // on the v1beta endpoint.
+  primaryModel: "gemini-1.5-flash-001",
+  // Keeping the original fallback models for now to minimize changes.
+  fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
   apiVersion: "v1beta",
   baseUrl: "https://generativelanguage.googleapis.com"
 };
@@ -106,7 +107,6 @@ MEMORY TIP GUIDELINES:
       console.error('Gemini API error response:', errorText);
 
       if (response.status === 404) {
-        // The error message here will now reference the new primaryModel, which should work
         throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
       }
 
@@ -389,32 +389,6 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
   }
 };
 
-const createEnrichmentPrompt = (question: any, outputLanguage: "english" | "tamil" = "english") => {
-  const languageInstruction = outputLanguage === "tamil" 
-    ? "Please provide all responses in Tamil language."
-    : "Please provide all responses in English language.";
-
-  return `
-You are enriching an extracted question from a TNPSC question paper. Your job is to add explanation and identify the TNPSC group.
-
-${languageInstruction}
-
-Question: ${question.question}
-Options: ${question.options?.join(', ') || 'N/A'}
-Answer: ${question.answer}
-
-Please provide enrichment in this JSON format:
-{
-  "explanation": "Brief explanation of why this answer is correct",
-  "tnpscGroup": "Group 1" | "Group 2" | "Group 4"
-}
-
-Focus on:
-- Providing a clear, concise explanation
-- Correctly identifying which TNPSC group this question belongs to
-- Keep explanations educational and helpful for exam preparation
-`;
-};
 
 export const generatePageAnalysis = async (
   file: File,
