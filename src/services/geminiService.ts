@@ -5,7 +5,7 @@ import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
-  // FIX: Switched to the latest, stable, multimodal model alias to resolve 404/availability issues.
+  // Keeping gemini-2.5-flash as the primary model to resolve 404/availability issues.
   primaryModel: "gemini-2.5-flash",
   // Keeping fallback models for reference.
   fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
@@ -31,25 +31,21 @@ Analyze this image for TNPSC (Tamil Nadu Public Service Commission) exam prepara
 ${languageInstruction}
 
 CRITICAL INSTRUCTIONS:
-- Extract ONLY specific, factual, and concrete information directly from the content
-- DO NOT include generic statements about importance or what needs to be studied
+- Extract ONLY specific, factual, and concrete information directly from the content.
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
-- Provide practical memory tips for each study point to help with retention
-- **NEW: Ensure study point descriptions and memory tips are concise.** 
-- **NEW: Limit the output to a maximum of 6 study points and 12 key points to prevent token overflow.**
+- **NEW: Use Key Points for the main analysis, and ensure all descriptions are concise.**
+- **NEW: Limit the total number of key points to a maximum of 15.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
-  "mainTopic": "Main topic of the content",
-  "studyPoints": [
+  "mainTopic": "Main topic of the content (concise)",
+  "keyPoints": [
     {
-      "title": "Key point title (concise)",
-      "description": "Detailed description (concise)",
+      "point": "Specific factual point (max 2 sentences)",
       "importance": "high/medium/low",
       "memoryTip": "Creative and memorable tip (concise)"
     }
   ],
-  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
   "summary": "Overall summary of the content (concise)",
   "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
   "tnpscCategories": ["Category1", "Category2", ...],
@@ -59,18 +55,12 @@ Please provide a comprehensive analysis in the following JSON format:
 Focus on:
 - TNPSC Group 1, 2, 4 exam relevance
 - Extracting specific facts, figures, names, dates, and definitions
-- Important dates, names, places
-- Conceptual understanding
-- Application in exam context
 - Make key points factual and specific from the actual content
 - Provide creative memory tips using mnemonics, associations, or patterns
 
 MEMORY TIP GUIDELINES:
 - Use acronyms, rhymes, visual imagery, or story-based associations
-- Connect facts to familiar concepts or create memorable patterns
-- Use number patterns, word associations, or logical sequences
-- Make tips fun, quirky, and unforgettable
-- Examples: "Remember VIBGYOR for rainbow colors" or "My Very Educated Mother Just Served Us Nachos for planets"
+- Keep tips fun, quirky, and unforgettable.
 `;
 
     const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -96,7 +86,7 @@ MEMORY TIP GUIDELINES:
         ],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 4096, // FIX: Increased to the highest reliable limit for detailed JSON output
+          maxOutputTokens: 4096, // Max reliable limit
           response_mime_type: "application/json",
         }
       })
@@ -145,7 +135,6 @@ MEMORY TIP GUIDELINES:
           throw new Error(safetyMessage);
       }
       
-      // Catches MAX_TOKENS and other non-content reasons
       throw new Error(`No final content received from Gemini API. Finish reason: ${finishReason || 'UNKNOWN'}`);
     }
 
@@ -164,11 +153,22 @@ MEMORY TIP GUIDELINES:
     const result = JSON.parse(cleanedContent);
     // --- END ROBUST ERROR/CONTENT CHECK ---
     
+    // Transform the new keyPoints format back to the expected AnalysisResult format for studyPoints
+    const transformedStudyPoints: AnalysisResult['studyPoints'] = (result.keyPoints || []).map((kp: any) => ({
+      title: kp.point,
+      description: kp.point, // Use the point as the description too, since we simplified the schema
+      importance: kp.importance || 'medium',
+      memoryTip: kp.memoryTip || 'Review this point regularly'
+    }));
+
+    // Extract simple key points for the analysis result structure
+    const simpleKeyPoints = (result.keyPoints || []).map((kp: any) => kp.point);
+
     return {
-      keyPoints: result.keyPoints || [],
+      keyPoints: simpleKeyPoints,
       summary: result.summary || '',
       tnpscRelevance: result.tnpscRelevance || '',
-      studyPoints: result.studyPoints || [],
+      studyPoints: transformedStudyPoints,
       tnpscCategories: result.tnpscCategories || []
     };
   } catch (error) {
@@ -582,7 +582,7 @@ export const analyzePdfContentComprehensive = async (
       const batch = pageMatches.slice(i, i + batchSize);
       
       for (const match of batch) {
-        const pageNumber = parseInt(match[1], 10);
+        const pageNumber = parseInt(match[1], 1);
         const pageContent = match[2].trim();
         
         if (pageContent.length < 50) continue; // Skip pages with minimal content
@@ -620,10 +620,7 @@ CRITICAL INSTRUCTIONS:
       "importance": "high/medium/low",
           "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
     }
-  ],
-  "summary": "Brief summary of the page content",
-  "tnpscRelevance": "How this content relates to TNPSC exams",
-  "tnpscCategories": ["Category1", "Category2"]
+  ]
 }
 
 Focus on:
