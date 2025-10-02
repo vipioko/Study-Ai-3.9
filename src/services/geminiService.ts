@@ -15,77 +15,7 @@ const getApiUrl = (model: string) => {
   return `${API_CONFIG.baseUrl}/${API_CONFIG.apiVersion}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 };
 
-// ========================================================================
-// INTERNAL FUNCTION: OCR TEXT TO STRUCTURED QUESTIONS
-// ========================================================================
-const extractQuestionsFromText = async (ocrText: string, outputLanguage: "english" | "tamil"): Promise<any[]> => {
-  const languageInstruction = outputLanguage === "tamil" 
-    ? "Please provide all questions, options, and explanations in Tamil language. Use Tamil script."
-    : "Please provide all content in English language.";
-
-  const prompt = `
-You are a highly accurate question paper extractor and parser.
-Extract all questions, their options, and identify the correct answer key (A, B, C, or D) from the following raw OCR text.
-
-${languageInstruction}
-
-OCR Text to Parse:
----
-${ocrText}
----
-
-CRITICAL INSTRUCTIONS:
-- You MUST return a JSON array containing ONLY the extracted question objects.
-- Do NOT add any extra commentary or text outside the JSON block.
-- For each question, infer the correct answer (A, B, C, or D) based on common knowledge/context.
-- You MUST provide a short explanation for the correct answer.
-- Assign a difficulty level and TNPSC Group based on the content.
-
-Return as a JSON array with this exact structure (max 15 questions):
-[
-  {
-    "question": "Question text here (both English and Tamil if available)",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "answer": "A", // MUST be A, B, C, or D
-    "type": "mcq",
-    "difficulty": "medium",
-    "tnpscGroup": "Group 1",
-    "explanation": "Brief explanation of the answer"
-  }
-]
-`;
-
-  const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.3, // Low temperature for deterministic extraction
-        maxOutputTokens: 4096,
-        response_mime_type: "application/json",
-      }
-    })
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Gemini API Extraction error response:', errorText);
-    throw new Error(`Gemini API Extraction error (${response.status}): ${errorText.substring(0, 200)}...`);
-  }
-
-  const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  
-  if (!content) {
-    throw new Error('No content received from Gemini API during structured extraction.');
-  }
-
-  const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleanedContent) as any[];
-};
-
-// New internal function to perform analysis on text content (Text-Only, simplest structure)
+// New internal function to perform analysis on text content (Text-Only)
 const analyzeTextContent = async (textContent: string, outputLanguage: "english" | "tamil"): Promise<any> => {
   const languageInstruction = outputLanguage === "tamil" 
     ? "Please provide all responses in Tamil language. Use Tamil script for all content."
@@ -99,23 +29,26 @@ ${languageInstruction}
 Content: ${textContent.substring(0, 8000)}
 
 CRITICAL INSTRUCTIONS:
-- Extract ONLY specific, factual, and concrete information directly from the content.
+- Extract ONLY specific, factual, and concrete information directly from the content
+- DO NOT include generic statements about importance or what needs to be studied
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
-- **VERY CRITICAL: All responses must be extremely concise to fit within the token limit.**
-- **NEW: Limit the total number of key points to a maximum of 15, each as a single sentence.**
+- Provide practical memory tips for each study point to help with retention
+- **NEW: Ensure Memory Tip is a single, concise phrase or bulleted list of 2-3 critical keywords/facts (e.g., '42 Amend-76, 51A, 10 duties') for rapid TNPSC review.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
-  "mainTopic": "Main topic of the content (very concise)",
-  "keyPoints": [
+  "mainTopic": "Main topic of the content",
+  "studyPoints": [
     {
-      "point": "Specific factual point (max 1 sentence)",
+      "title": "Key point title",
+      "description": "Detailed description",
       "importance": "high/medium/low",
-      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
+      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review."
     }
   ],
-  "summary": "Overall summary of the content (very concise, max 3 sentences)",
-  "tnpscRelevance": "How this content is relevant for TNPSC exams (very concise)",
+  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
+  "summary": "Overall summary of the content",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams",
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
@@ -138,7 +71,6 @@ MEMORY TIP GUIDELINES:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      // FIX: Consolidated structure for text-only input
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
@@ -174,23 +106,26 @@ Analyze this image for TNPSC (Tamil Nadu Public Service Commission) exam prepara
 ${languageInstruction}
 
 CRITICAL INSTRUCTIONS:
-- Extract ONLY specific, factual, and concrete information directly from the content.
+- Extract ONLY specific, factual, and concrete information directly from the content
+- DO NOT include generic statements about importance or what needs to be studied
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
-- **VERY CRITICAL: All responses must be extremely concise to fit within the token limit.**
-- **NEW: Limit the total number of key points to a maximum of 15, each as a single sentence.**
+- Provide practical memory tips for each study point to help with retention
+- **NEW: Ensure Memory Tip is a single, concise phrase or bulleted list of 2-3 critical keywords/facts (e.g., '42 Amend-76, 51A, 10 duties') for rapid TNPSC review.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
-  "mainTopic": "Main topic of the content (very concise)",
-  "keyPoints": [
+  "mainTopic": "Main topic of the content",
+  "studyPoints": [
     {
-      "point": "Specific factual point (max 1 sentence)",
+      "title": "Key point title",
+      "description": "Detailed description",
       "importance": "high/medium/low",
-      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
+      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review."
     }
   ],
-  "summary": "Overall summary of the content (very concise, max 3 sentences)",
-  "tnpscRelevance": "How this content is relevant for TNPSC exams (very concise)",
+  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
+  "summary": "Overall summary of the content",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams",
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
@@ -322,24 +257,12 @@ const processGeminiResponse = (data: any): AnalysisResult => {
     
     const result = JSON.parse(cleanedContent);
     
-    // Transform the new keyPoints format back to the expected AnalysisResult format for studyPoints
-    const finalKeyPoints = Array.isArray(result.keyPoints) ? result.keyPoints.filter(p => typeof p === 'object' && p !== null) : [];
-    
-    const transformedStudyPoints: AnalysisResult['studyPoints'] = finalKeyPoints.map((kp: any) => ({
-      title: kp.point || 'Key Point',
-      description: kp.point || 'No description provided.',
-      importance: kp.importance || 'medium',
-      memoryTip: kp.memoryTip || 'Review this point regularly' 
-    }));
-
-    // Extract simple key points for the analysis result structure
-    const simpleKeyPoints = finalKeyPoints.map((kp: any) => kp.point);
-
+    // The previous transformation is no longer needed as we're back to the original complex structure
     return {
-      keyPoints: simpleKeyPoints,
+      keyPoints: result.keyPoints || [],
       summary: result.summary || '',
       tnpscRelevance: result.tnpscRelevance || '',
-      studyPoints: transformedStudyPoints, 
+      studyPoints: result.studyPoints || [],
       tnpscCategories: result.tnpscCategories || []
     };
 };
@@ -437,6 +360,77 @@ Focus on:
 - Keep explanations educational and helpful for exam preparation
 `;
 };
+
+// ========================================================================
+// INTERNAL FUNCTION: OCR TEXT TO STRUCTURED QUESTIONS
+// ========================================================================
+const extractQuestionsFromText = async (ocrText: string, outputLanguage: "english" | "tamil"): Promise<any[]> => {
+  const languageInstruction = outputLanguage === "tamil" 
+    ? "Please provide all questions, options, and explanations in Tamil language. Use Tamil script."
+    : "Please provide all content in English language.";
+
+  const prompt = `
+You are a highly accurate question paper extractor and parser.
+Extract all questions, their options, and identify the correct answer key (A, B, C, or D) from the following raw OCR text.
+
+${languageInstruction}
+
+OCR Text to Parse:
+---
+${ocrText}
+---
+
+CRITICAL INSTRUCTIONS:
+- You MUST return a JSON array containing ONLY the extracted question objects.
+- Do NOT add any extra commentary or text outside the JSON block.
+- For each question, infer the correct answer (A, B, C, or D) based on common knowledge/context.
+- You MUST provide a short explanation for the correct answer.
+- Assign a difficulty level and TNPSC Group based on the content.
+
+Return as a JSON array with this exact structure (max 15 questions):
+[
+  {
+    "question": "Question text here (both English and Tamil if available)",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": "A", // MUST be A, B, C, or D
+    "type": "mcq",
+    "difficulty": "medium",
+    "tnpscGroup": "Group 1",
+    "explanation": "Brief explanation of the answer"
+  }
+]
+`;
+
+  const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3, // Low temperature for deterministic extraction
+        maxOutputTokens: 4096,
+        response_mime_type: "application/json",
+      }
+    })
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API Extraction error response:', errorText);
+    throw new Error(`Gemini API Extraction error (${response.status}): ${errorText.substring(0, 200)}...`);
+  }
+
+  const data = await response.json();
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  if (!content) {
+    throw new Error('No content received from Gemini API during structured extraction.');
+  }
+
+  const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+  return JSON.parse(cleanedContent) as any[];
+};
+
 
 // ========================================================================
 // CORE FUNCTION: GENERATE QUESTIONS (NOW INCLUDES EXTRACTION FALLBACK)
