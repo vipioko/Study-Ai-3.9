@@ -5,8 +5,7 @@ import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
-  // FIX APPLIED HERE: Switching to the latest, stable, multimodal model alias 
-  // which is typically available across most API keys/endpoints.
+  // Keeping gemini-2.5-flash as the primary model to resolve 404/availability issues.
   primaryModel: "gemini-2.5-flash",
   // Keeping fallback models for reference, though the current functions only use primaryModel.
   fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
@@ -113,16 +112,52 @@ MEMORY TIP GUIDELINES:
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    if (!content) {
-      throw new Error('No content received from Gemini API');
+    // --- START FIX for 'No content received' error ---
+    const candidates = data.candidates;
+
+    if (!candidates || candidates.length === 0) {
+      const promptFeedback = data.promptFeedback;
+      let errorMessage = 'No content or candidates received from Gemini API.';
+
+      if (promptFeedback) {
+        if (promptFeedback.blockReason === 'SAFETY') {
+          errorMessage = `Request blocked due to safety settings. Please check the image content. Safety Ratings: ${JSON.stringify(promptFeedback.safetyRatings, null, 2)}`;
+        } else if (promptFeedback.blockReason === 'OTHER') {
+          errorMessage = `Request blocked due to policy reasons. Block Reason: ${promptFeedback.blockReason}`;
+        }
+      }
+      
+      console.error('Gemini API returned no candidates or was blocked:', data);
+      throw new Error(errorMessage);
     }
+
+    const candidate = candidates[0];
+    const content = candidate.content?.parts?.[0]?.text;
+    const finishReason = candidate.finishReason;
+
+    if (!content) {
+      if (finishReason === 'SAFETY') {
+          const safetyMessage = `Candidate blocked due to safety settings. Please modify the image or prompt. Safety Ratings: ${JSON.stringify(candidate.safetyRatings, null, 2)}`;
+          console.error(safetyMessage, candidate.safetyRatings);
+          throw new Error(safetyMessage);
+      }
+      
+      // Handle other non-content scenarios (like STOP, MAX_TOKENS, RECITATION, etc.)
+      throw new Error(`No final content received from Gemini API. Finish reason: ${finishReason || 'UNKNOWN'}`);
+    }
+    // --- END FIX ---
 
     console.log('Raw Gemini response:', content);
 
     // Clean and parse the JSON response
     const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    // CRITICAL: A simple string check before JSON.parse is needed to prevent errors on malformed model output
+    if (!cleanedContent.startsWith('{') || !cleanedContent.endsWith('}')) {
+        console.error('Raw content is not valid JSON:', cleanedContent);
+        throw new Error('Gemini API returned non-JSON data. Try a simpler image or adjust the prompt.');
+    }
+    
     const result = JSON.parse(cleanedContent);
     
     return {
@@ -187,9 +222,11 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
+    
     if (!content) {
-      throw new Error('No content received from Gemini API');
+      // Basic content check here, as it's not JSON constrained
+      const finishReason = data.candidates?.[0]?.finishReason;
+      throw new Error(`No content received from Gemini API during text extraction. Finish reason: ${finishReason || 'UNKNOWN'}`);
     }
 
     console.log('Raw OCR text extracted (first 200 chars):', content.substring(0, 200) + '...');
