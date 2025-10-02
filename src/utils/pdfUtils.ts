@@ -1,18 +1,23 @@
-// src/utils/pdfUtils.ts - Final Fix: Proper Font Registration for Tamil
+// src/utils/pdfUtils.ts - FINAL, CLEANEST VERSION
 
 import jsPDF from 'jspdf';
-// NOTE: You must ensure 'NotoSansTamil' font data is loaded and registered in your environment.
-// This code assumes that a font named 'NotoSansTamil' is registered via pdf.addFont().
-
-const TAMIL_FONT_NAME = 'NotoSansTamil';
-const DEFAULT_FONT_NAME = 'helvetica';
 
 // Helper function to detect Tamil text
 const containsTamilText = (text: string): boolean => {
   return /[\u0B80-\u0BFF]/.test(text);
 };
 
-// Interface remains unchanged
+// --- FONT CONFIGURATION ---
+// We remove the explicit addFont calls which cause the VFS error.
+// We rely on the font being dynamically loaded by jsPDF or available 
+// in the environment if we use a specific name.
+const CUSTOM_FONT_NAME = 'CustomTamil'; // A simple name to reference internally
+const DEFAULT_FONT_NAME = 'helvetica';
+
+// NOTE: For Tamil to work, the font named 'CustomTamil' (e.g., Noto Sans Tamil) 
+// MUST be loaded and registered in your application's bootstrap/VFS outside this file.
+
+// --- NO CHANGE HERE ---
 export interface PDFContent {
   title: string;
   content: any;
@@ -22,24 +27,8 @@ export interface PDFContent {
 export const downloadPDF = async ({ title, content, type }: PDFContent) => {
   const pdf = new jsPDF();
   
-  // =======================================================
-  // *** CRITICAL FONT FIX: Registration & Setting ***
-  
-  // 1. Explicitly register the font (even if the data is loaded elsewhere)
-  // This line is essential for the structure, even if the data loading is external.
-  try {
-      // Assuming 'NotoSansTamil' is the name given during the font file conversion.
-      pdf.addFont(TAMIL_FONT_NAME, TAMIL_FONT_NAME, 'normal'); 
-      pdf.addFont(TAMIL_FONT_NAME, TAMIL_FONT_NAME, 'bold'); 
-  } catch (e) {
-      console.warn("Custom font registration failed. Check if Noto Sans Tamil data is embedded.", e);
-  }
-  
-  // 2. Set default font for document headers/English text
-  pdf.setFont(DEFAULT_FONT_NAME, 'bold');
-  pdf.setR2L(false); // Left-to-Right text direction for English/Tamil
-
-  // =======================================================
+  // *** FONT FIX: REMOVING addFont CALLS ***
+  // These calls are now commented out or removed entirely to prevent VFS crash.
   
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -58,16 +47,15 @@ export const downloadPDF = async ({ title, content, type }: PDFContent) => {
     
     // Determine which font to use based on content
     const isTamil = containsTamilText(text);
-    const fontToUse = isTamil ? TAMIL_FONT_NAME : DEFAULT_FONT_NAME;
+    const fontToUse = isTamil ? CUSTOM_FONT_NAME : DEFAULT_FONT_NAME;
     
     pdf.setFontSize(fontSize);
     
-    // Set the font. This is where the magic happens.
+    // Set the font. This line will now only succeed if 'CustomTamil' is externally registered.
     try {
         pdf.setFont(fontToUse, fontStyle); 
-        // If the font is the custom one, we assume it supports Unicode
     } catch (e) {
-        // Fallback to default if custom font is not registered
+        // Fallback to default if custom font is not registered (Will result in garbled text)
         pdf.setFont(DEFAULT_FONT_NAME, fontStyle); 
     }
     
@@ -79,7 +67,7 @@ export const downloadPDF = async ({ title, content, type }: PDFContent) => {
     return lines.length;
   };
   
-  // *** FONT LOGIC APPLIED ***
+  // *** LOGIC IS NOW CRASH-PROOF ***
 
   pdf.setFontSize(20);
   pdf.setFont(DEFAULT_FONT_NAME, 'bold'); 
@@ -88,7 +76,6 @@ export const downloadPDF = async ({ title, content, type }: PDFContent) => {
 
   // --- ANALYSIS BLOCK ---
   if (type === 'keypoints' || type === 'analysis') {
-    // ... (logic remains the same, but now uses the updated addWrappedText) ...
     content.forEach((analysis, index) => {
       checkNewPage(50);
       addWrappedText(`File: ${analysis.fileName || analysis.mainTopic || `Analysis ${index + 1}`}`, margin, 16, 'bold');
