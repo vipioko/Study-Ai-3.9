@@ -143,7 +143,7 @@ MEMORY TIP GUIDELINES:
       body: JSON.stringify({
         contents: [
           { parts: [{ text: prompt }] },
-          { inline_data: { mime_type: file.type, data: base64Image.split(',')[1] } }
+          { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } }
         ],
         generationConfig: {
           temperature: 0.7,
