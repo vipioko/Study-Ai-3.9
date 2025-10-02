@@ -39,7 +39,7 @@ const QuickAnalysisMode = ({ files, difficulty, outputLanguage, onStartQuiz, onR
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [allCompleted, setAllCompleted] = useState(false);
 
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyAJ2P2TqBOXQncnBgT0T_BNsLcAA7cToo4";
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
   useEffect(() => {
     initializeAnalyses();
