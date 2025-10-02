@@ -5,9 +5,8 @@ import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
-  // Keeping gemini-2.5-flash as the primary model to resolve 404/availability issues.
+  // Keeping gemini-2.5-flash as the primary model.
   primaryModel: "gemini-2.5-flash",
-  // Keeping fallback models for reference.
   fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
   apiVersion: "v1beta",
   baseUrl: "https://generativelanguage.googleapis.com"
@@ -17,10 +16,83 @@ const getApiUrl = (model: string) => {
   return `${API_CONFIG.baseUrl}/${API_CONFIG.apiVersion}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 };
 
+// New internal function to perform analysis on text content
+const analyzeTextContent = async (textContent: string, outputLanguage: "english" | "tamil"): Promise<any> => {
+  const languageInstruction = outputLanguage === "tamil" 
+    ? "Please provide all responses in Tamil language. Use Tamil script for all content."
+    : "Please provide all responses in English language.";
+
+  const prompt = `
+Analyze this text content for TNPSC (Tamil Nadu Public Service Commission) exam preparation.
+
+${languageInstruction}
+
+Content: ${textContent.substring(0, 8000)}
+
+CRITICAL INSTRUCTIONS:
+- Extract ONLY specific, factual, and concrete information directly from the content.
+- Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
+- **NEW: Use Key Points for the main analysis, and ensure all descriptions are concise.**
+- **NEW: Limit the total number of key points to a maximum of 15.**
+
+Please provide a comprehensive analysis in the following JSON format:
+{
+  "mainTopic": "Main topic of the content (concise)",
+  "keyPoints": [
+    {
+      "point": "Specific factual point (max 2 sentences)",
+      "importance": "high/medium/low",
+      "memoryTip": "Creative and memorable tip (concise)"
+    }
+  ],
+  "summary": "Overall summary of the content (concise)",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
+  "tnpscCategories": ["Category1", "Category2", ...],
+  "difficulty": "easy/medium/hard"
+}
+
+Focus on:
+- TNPSC Group 1, 2, 4 exam relevance
+- Extracting specific facts, figures, names, dates, and definitions
+- Make key points factual and specific from the actual content
+- Provide creative memory tips using mnemonics, associations, or patterns
+
+MEMORY TIP GUIDELINES:
+- Use acronyms, rhymes, visual imagery, or story-based associations
+- Keep tips fun, quirky, and unforgettable.
+`;
+
+  const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+        response_mime_type: "application/json",
+      }
+    })
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API Text Analysis error response:', errorText);
+    throw new Error(`Gemini API Text Analysis error (${response.status}): ${errorText.substring(0, 200)}...`);
+  }
+
+  const data = await response.json();
+  return data;
+};
+
+
 export const analyzeImage = async (file: File, outputLanguage: "english" | "tamil" = "english"): Promise<AnalysisResult> => {
+  const base64Image = await convertToBase64(file);
+  
+  // 1. ATTEMPT DIRECT IMAGE-TO-JSON ANALYSIS
   try {
-    const base64Image = await convertToBase64(file);
-    
     const languageInstruction = outputLanguage === "tamil" 
       ? "Please provide all responses in Tamil language. Use Tamil script for all content."
       : "Please provide all responses in English language.";
@@ -70,23 +142,12 @@ MEMORY TIP GUIDELINES:
       },
       body: JSON.stringify({
         contents: [
-          {
-            parts: [
-              {
-                text: prompt
-              },
-              {
-                inline_data: {
-                  mime_type: file.type,
-                  data: base64Image.split(',')[1]
-                }
-              }
-            ]
-          }
+          { parts: [{ text: prompt }] },
+          { inline_data: { mime_type: file.type, data: base64Image.split(',')[1] } }
         ],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 4096, // Max reliable limit
+          maxOutputTokens: 4096,
           response_mime_type: "application/json",
         }
       })
@@ -94,7 +155,7 @@ MEMORY TIP GUIDELINES:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error response:', errorText);
+      console.error('Gemini API error response (Direct Image Analysis):', errorText);
 
       if (response.status === 404) {
         throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
@@ -104,10 +165,44 @@ MEMORY TIP GUIDELINES:
     }
 
     const data = await response.json();
-    
-    // --- START ROBUST ERROR/CONTENT CHECK ---
-    const candidates = data.candidates;
+    const result = processGeminiResponse(data);
+    return result;
 
+  } catch (error) {
+    // 2. CHECK FOR MAX_TOKENS ERROR
+    const errorString = (error as Error).message;
+    if (errorString.includes('MAX_TOKENS') || errorString.includes('Output truncated or malformed')) {
+      console.warn('Direct image analysis failed with MAX_TOKENS or truncation. Falling back to OCR -> Analysis.');
+      
+      // 3. FALLBACK: OCR -> TEXT ANALYSIS
+      try {
+        const rawText = await extractRawTextFromImage(file);
+        
+        if (!rawText.trim()) {
+            throw new Error('Fallback failed: Could not extract any text from the image.');
+        }
+
+        const data = await analyzeTextContent(rawText, outputLanguage);
+        const result = processGeminiResponse(data);
+        return result;
+
+      } catch (fallbackError) {
+        console.error('Error during OCR/Text Analysis Fallback:', fallbackError);
+        // If the fallback also fails, throw the original error or a combined one
+        throw new Error(`Analysis failed after fallback: ${(fallbackError as Error).message}`);
+      }
+    }
+    
+    // For all other errors (404, safety block, etc.), throw the original error
+    console.error('Error analyzing image:', error);
+    throw error;
+  }
+};
+
+// Helper function to process the model's structured JSON response
+const processGeminiResponse = (data: any): AnalysisResult => {
+    const candidates = data.candidates;
+    
     if (!candidates || candidates.length === 0) {
       const promptFeedback = data.promptFeedback;
       let errorMessage = 'No content or candidates received from Gemini API.';
@@ -143,15 +238,12 @@ MEMORY TIP GUIDELINES:
     // Clean and parse the JSON response
     const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
     
-    // CRITICAL FIX: Explicit check for incomplete JSON due to truncation
     if (!cleanedContent.startsWith('{') || !cleanedContent.endsWith('}')) {
         console.error('Raw content is not valid JSON:', cleanedContent);
-        // Include the first 200 characters of the non-JSON content in the error for debugging
         throw new Error(`Gemini API returned non-JSON data. Output truncated or malformed (Finish Reason: ${finishReason || 'N/A'}): ${cleanedContent.substring(0, 200)}...`);
     }
     
     const result = JSON.parse(cleanedContent);
-    // --- END ROBUST ERROR/CONTENT CHECK ---
     
     // Transform the new keyPoints format back to the expected AnalysisResult format for studyPoints
     const transformedStudyPoints: AnalysisResult['studyPoints'] = (result.keyPoints || []).map((kp: any) => ({
@@ -171,11 +263,8 @@ MEMORY TIP GUIDELINES:
       studyPoints: transformedStudyPoints,
       tnpscCategories: result.tnpscCategories || []
     };
-  } catch (error) {
-    console.error('Error analyzing image:', error);
-    throw error;
-  }
 };
+
 
 // NEW FUNCTION: Extract raw text from image using Gemini
 export const extractRawTextFromImage = async (file: File): Promise<string> => {
@@ -582,7 +671,7 @@ export const analyzePdfContentComprehensive = async (
       const batch = pageMatches.slice(i, i + batchSize);
       
       for (const match of batch) {
-        const pageNumber = parseInt(match[1], 1);
+        const pageNumber = parseInt(match[1], 10);
         const pageContent = match[2].trim();
         
         if (pageContent.length < 50) continue; // Skip pages with minimal content
@@ -620,7 +709,10 @@ CRITICAL INSTRUCTIONS:
       "importance": "high/medium/low",
           "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
     }
-  ]
+  ],
+  "summary": "Brief summary of the page content",
+  "tnpscRelevance": "How this content relates to TNPSC exams",
+  "tnpscCategories": ["Category1", "Category2"]
 }
 
 Focus on:
