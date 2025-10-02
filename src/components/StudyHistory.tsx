@@ -1,4 +1,7 @@
+// src/components/admin/StudyHistory.tsx
+
 import { useState, useEffect } from "react";
+import html2canvas from 'html2canvas'; // <<< NEW IMPORT
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +12,83 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/config/firebase";
 import { getStudyHistory, deleteStudyHistory, StudyHistoryRecord } from "@/services/studyHistoryService";
 import { toast } from "sonner";
-import { downloadPDF } from "@/utils/pdfUtils";
+import { downloadImageAsPDF, PDFContent } from "@/utils/pdfUtils"; // <<< UPDATED IMPORT
 import { useAppContext } from "@/contexts/AppContext";
 import { generateQuestions } from "@/services/geminiService";
 import { QuestionResult } from "./StudyAssistant";
+import { AnalysisResult, StudyPoint } from "./StudyAssistant"; // Assuming StudyAssistant is in the same directory
+
+
+// Component to render the record data in a hidden div for html2canvas
+interface RecordContentRendererProps {
+  record: StudyHistoryRecord;
+}
+
+// NOTE: This component MUST be rendered in the main JSX of StudyHistory. 
+// However, since I cannot modify the main JSX, I am including the logic 
+// to be inserted where it can render the content.
+const RecordContentRenderer: React.FC<RecordContentRendererProps> = ({ record }) => {
+    // This logic must exactly match the content structure you want in the PDF
+    const data = record.type === "quiz" ? record.quizData : record.analysisData;
+    const title = record.type === "quiz" ? `Quiz Results` : `Study Analysis`;
+
+    if (!data) return null;
+
+    return (
+        <div id={`record-content-${record.id}`} className="p-8 bg-white text-black max-w-4xl mx-auto" style={{
+            // Critical styles for rendering the canvas correctly
+            fontFamily: 'Noto Sans Tamil, Arial, sans-serif', 
+            fontSize: '12pt',
+            lineHeight: '1.5',
+            padding: '2rem'
+        }}>
+            <h1 style={{ fontSize: '24pt', fontWeight: 'bold', marginBottom: '1rem' }}>{title}</h1>
+            <p style={{ marginBottom: '0.5rem' }}>**File:** {record.fileName || 'N/A'}</p>
+            <p style={{ marginBottom: '1rem' }}>**Date:** {record.timestamp.toDate().toLocaleString()}</p>
+            
+            {/* RENDER ANALYSIS CONTENT */}
+            {record.type === "analysis" && Array.isArray(data) && data.map((analysis: AnalysisResult, index) => (
+                <div key={index} style={{ marginBottom: '2rem', borderTop: '1px solid #ccc', paddingTop: '1rem' }}>
+                    <h2 style={{ fontSize: '18pt', fontWeight: 'bold', marginBottom: '0.5rem' }}>{analysis.mainTopic || `Analysis ${index + 1}`}</h2>
+                    
+                    <h3 style={{ fontSize: '14pt', fontWeight: 'bold', marginTop: '1rem' }}>Summary:</h3>
+                    <p>{analysis.summary}</p>
+
+                    <h3 style={{ fontSize: '14pt', fontWeight: 'bold', marginTop: '1rem' }}>Study Points:</h3>
+                    <ul style={{ paddingLeft: '20px' }}>
+                        {analysis.studyPoints && analysis.studyPoints.map((point: StudyPoint, pointIndex) => (
+                            <li key={pointIndex} style={{ marginBottom: '0.5rem' }}>
+                                <p style={{ fontWeight: 'bold' }}>{point.title}</p>
+                                <p style={{ marginLeft: '10px' }}>{point.description}</p>
+                                <p style={{ marginLeft: '10px', fontStyle: 'italic', color: '#666' }}>🧠 Tip: {point.memoryTip}</p>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+            
+            {/* RENDER QUIZ CONTENT (Simplified) */}
+            {record.type === "quiz" && (
+                <div style={{ marginBottom: '2rem', borderTop: '1px solid #ccc', paddingTop: '1rem' }}>
+                    <h2 style={{ fontSize: '18pt', fontWeight: 'bold', marginBottom: '0.5rem' }}>Quiz Results: {data.score}/{data.totalQuestions} ({data.percentage}%)</h2>
+                    {data.answers && data.answers.map((answer: any, index: number) => (
+                        <div key={index} style={{ marginBottom: '1rem' }}>
+                            <p style={{ fontWeight: 'bold', color: answer.isCorrect ? 'green' : 'red' }}>
+                                {index + 1}. {answer.question.question}
+                            </p>
+                            <p style={{ marginLeft: '10px' }}>Your Answer: {answer.userAnswer}</p>
+                            {!answer.isCorrect && (
+                                <p style={{ marginLeft: '10px', fontWeight: 'bold', color: 'green' }}>Correct Answer: {answer.correctAnswer}</p>
+                            )}
+                            <p style={{ marginLeft: '10px', fontStyle: 'italic' }}>Explanation: {answer.question.explanation}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+// ========================================================================
 
 
 const StudyHistory = () => {
@@ -91,38 +167,48 @@ const StudyHistory = () => {
     }
   };
 
+  // ========================================================================
+  // *** CRITICAL DOWNLOAD FUNCTION WITH HTML2CANVAS FIX ***
+  // ========================================================================
   const handleDownload = async (record: StudyHistoryRecord) => {
-    try {
-      let title, content, type;
-      
-      // Convert Firestore timestamp to Date for formatting
-      const dateString = record.timestamp.toDate().toLocaleDateString();
+    // 1. Locate the hidden content renderer for the specific record
+    const contentElement = document.getElementById(`record-content-${record.id}`); 
+    
+    if (!contentElement) {
+        toast.error("Error: Content rendering failed for download. Element not found.");
+        return;
+    }
 
-      if (record.type === "quiz" && record.quizData) {
-        title = `Quiz Results - ${dateString}`;
-        content = record.quizData;
-        type = "quiz-results";
-      } else if (record.type === "analysis" && record.analysisData) {
-        title = `Study Analysis - ${dateString}`;
-        content = [record.analysisData];
-        type = "analysis";
-      } else {
-        // Fallback to original data structure
-        title = record.type === "quiz" 
-          ? `Quiz Results - ${dateString}`
-          : `Study Analysis - ${dateString}`;
-        content = record.data;
-        type = record.type === "quiz" ? "quiz-results" : "analysis";
-      }
-      
-      await downloadPDF({ title, content, type });
-      
-      toast.success("Downloaded successfully!");
+    try {
+        toast.info("Capturing content for PDF generation...");
+        
+        // 2. Use html2canvas to capture the entire DOM element
+        const canvas = await html2canvas(contentElement, {
+            scale: 2, // Higher scale for better resolution
+            useCORS: true,
+            // Scroll to the top of the element before capture
+            windowWidth: contentElement.scrollWidth,
+            windowHeight: contentElement.scrollHeight,
+        });
+
+        const base64Image = canvas.toDataURL('image/jpeg', 1.0);
+        
+        // 3. Call the new utility function
+        const title = `${record.type === 'quiz' ? 'Quiz-Results' : 'Analysis'}-${record.fileName || 'Data'}-${record.timestamp.toDate().toLocaleDateString()}`;
+
+        await downloadImageAsPDF({ 
+            title, 
+            base64Image 
+        });
+        
+        toast.success("Downloaded successfully!");
+
     } catch (error) {
-      console.error("Download error:", error);
-      toast.error("Failed to download");
+        console.error("Download error:", error);
+        toast.error(`Failed to download PDF. Please ensure 'html2canvas' is installed and check console for errors.`);
     }
   };
+  // ========================================================================
 
   const handleDelete = async (recordId: string) => {
     try {
@@ -224,6 +310,23 @@ const StudyHistory = () => {
         <div className="absolute top-1/3 left-1/3 w-64 h-64 bg-gradient-to-br from-green-400/15 to-emerald-400/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '4s'}}></div>
         <div className="absolute bottom-1/3 right-1/3 w-64 h-64 bg-gradient-to-br from-orange-400/15 to-yellow-400/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '6s'}}></div>
       </div>
+      
+      {/* 4. INSERT HIDDEN RENDERER FOR HTML2CANVAS */}
+      <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          zIndex: -100, // Move it off-screen so it doesn't interfere with the UI
+          opacity: 0, 
+          pointerEvents: 'none',
+          height: 'auto',
+          width: '100%',
+      }}>
+          {filteredHistory.map(record => (
+              <RecordContentRenderer key={`renderer-${record.id}`} record={record} />
+          ))}
+      </div>
+
 
       <div className="container mx-auto px-4 py-6 relative z-10">
         <div className="max-w-4xl mx-auto space-y-6">
@@ -438,7 +541,7 @@ const StudyHistory = () => {
                           {record.difficulty.toUpperCase()}
                         </Badge>
                         <Badge className="bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-md">
-                          {record.language === "tamil" ? "தமிழ்" : "English"}
+                          {record.language === "tamil" ? "🇮🇳 தமிழ்" : "🇺🇸 English"}
                         </Badge>
                       </div>
 
