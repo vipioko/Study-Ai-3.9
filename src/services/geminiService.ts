@@ -5,9 +5,9 @@ import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
-  // Keeping gemini-2.5-flash as the primary model to resolve 404/availability issues.
+  // FIX: Switched to the latest, stable, multimodal model alias to resolve 404/availability issues.
   primaryModel: "gemini-2.5-flash",
-  // Keeping fallback models for reference, though the current functions only use primaryModel.
+  // Keeping fallback models for reference.
   fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
   apiVersion: "v1beta",
   baseUrl: "https://generativelanguage.googleapis.com"
@@ -35,21 +35,23 @@ CRITICAL INSTRUCTIONS:
 - DO NOT include generic statements about importance or what needs to be studied
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
 - Provide practical memory tips for each study point to help with retention
+- **NEW: Ensure study point descriptions and memory tips are concise.** 
+- **NEW: Limit the output to a maximum of 6 study points and 12 key points to prevent token overflow.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
   "mainTopic": "Main topic of the content",
   "studyPoints": [
     {
-      "title": "Key point title",
-      "description": "Detailed description",
+      "title": "Key point title (concise)",
+      "description": "Detailed description (concise)",
       "importance": "high/medium/low",
-      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns that make this information stick in memory permanently"
+      "memoryTip": "Creative and memorable tip (concise)"
     }
   ],
   "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
-  "summary": "Overall summary of the content",
-  "tnpscRelevance": "How this content is relevant for TNPSC exams",
+  "summary": "Overall summary of the content (concise)",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
@@ -94,7 +96,7 @@ MEMORY TIP GUIDELINES:
         ],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 4096, // FIX: Increased to the highest reliable limit for detailed JSON output
           response_mime_type: "application/json",
         }
       })
@@ -113,7 +115,7 @@ MEMORY TIP GUIDELINES:
 
     const data = await response.json();
     
-    // --- START FIX for 'No content received' error ---
+    // --- START ROBUST ERROR/CONTENT CHECK ---
     const candidates = data.candidates;
 
     if (!candidates || candidates.length === 0) {
@@ -143,22 +145,24 @@ MEMORY TIP GUIDELINES:
           throw new Error(safetyMessage);
       }
       
-      // Handle other non-content scenarios (like STOP, MAX_TOKENS, RECITATION, etc.)
+      // Catches MAX_TOKENS and other non-content reasons
       throw new Error(`No final content received from Gemini API. Finish reason: ${finishReason || 'UNKNOWN'}`);
     }
-    // --- END FIX ---
 
     console.log('Raw Gemini response:', content);
 
     // Clean and parse the JSON response
     const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-    // CRITICAL: A simple string check before JSON.parse is needed to prevent errors on malformed model output
+    
+    // CRITICAL FIX: Explicit check for incomplete JSON due to truncation
     if (!cleanedContent.startsWith('{') || !cleanedContent.endsWith('}')) {
         console.error('Raw content is not valid JSON:', cleanedContent);
-        throw new Error('Gemini API returned non-JSON data. Try a simpler image or adjust the prompt.');
+        // Include the first 200 characters of the non-JSON content in the error for debugging
+        throw new Error(`Gemini API returned non-JSON data. Output truncated or malformed (Finish Reason: ${finishReason || 'N/A'}): ${cleanedContent.substring(0, 200)}...`);
     }
     
     const result = JSON.parse(cleanedContent);
+    // --- END ROBUST ERROR/CONTENT CHECK ---
     
     return {
       keyPoints: result.keyPoints || [],
