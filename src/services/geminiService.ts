@@ -2,7 +2,7 @@ import { AnalysisResult, QuestionResult } from "@/components/StudyAssistant";
 import { extractTextFromPdfPage, extractPageRangeFromOcr } from "@/utils/pdfReader";
 import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCPXJi_EkEjbYFJ6kaCkRsnlSGcDvFWK5s";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
   primaryModel: "gemini-1.5-flash",
