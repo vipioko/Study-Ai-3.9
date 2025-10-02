@@ -41,7 +41,8 @@ Please provide a comprehensive analysis in the following JSON format:
     {
       "point": "Specific factual point (max 1 sentence)",
       "importance": "high/medium/low",
-      "memoryTip": "Shorter and crisper explanation of the point (max 5 words) for quick review. DO NOT create a complex mnemonic."
+      // FIX: New memory tip requirement for TNPSC students
+      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
   "summary": "Overall summary of the content (very concise, max 3 sentences)",
@@ -54,6 +55,12 @@ Focus on:
 - TNPSC Group 1, 2, 4 exam relevance
 - Extracting specific facts, figures, names, dates, and definitions
 - Make key points factual and specific from the actual content
+- Provide creative memory tips using mnemonics, associations, or patterns
+
+MEMORY TIP GUIDELINES:
+- **Use acronyms, rhymes, visual imagery, or story-based associations.**
+- **Keep tips fun, quirky, and unforgettable.**
+- **CRITICAL: The tip must synthesize the point into a very short, memorable TNPSC-relevant summary (keywords, dates, articles).**
 `;
 
   const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -110,7 +117,8 @@ Please provide a comprehensive analysis in the following JSON format:
     {
       "point": "Specific factual point (max 1 sentence)",
       "importance": "high/medium/low",
-      "memoryTip": "Shorter and crisper explanation of the point (max 5 words) for quick review. DO NOT create a complex mnemonic."
+      // FIX: New memory tip requirement for TNPSC students
+      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
   "summary": "Overall summary of the content (very concise, max 3 sentences)",
@@ -123,6 +131,12 @@ Focus on:
 - TNPSC Group 1, 2, 4 exam relevance
 - Extracting specific facts, figures, names, dates, and definitions
 - Make key points factual and specific from the actual content
+- Provide creative memory tips using mnemonics, associations, or patterns
+
+MEMORY TIP GUIDELINES:
+- **Use acronyms, rhymes, visual imagery, or story-based associations.**
+- **Keep tips fun, quirky, and unforgettable.**
+- **CRITICAL: The tip must synthesize the point into a very short, memorable TNPSC-relevant summary (keywords, dates, articles).**
 `;
 
     const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
