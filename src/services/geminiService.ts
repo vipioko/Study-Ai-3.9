@@ -143,7 +143,7 @@ MEMORY TIP GUIDELINES:
       body: JSON.stringify({
         contents: [
           { parts: [{ text: prompt }] },
-          { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } }
+          { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } } // FIX: Changed 'inline_data' to 'inlineData'
         ],
         generationConfig: {
           temperature: 0.7,
@@ -156,6 +156,12 @@ MEMORY TIP GUIDELINES:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response (Direct Image Analysis):', errorText);
+
+      // Check if the error is the expected 400 Bad Request about inlineData
+      if (response.status === 400 && errorText.includes('inline_data')) {
+           // Re-throw with more specific message indicating the code is wrong, though it should be fixed now.
+           throw new Error(`Gemini API error (400): Invalid payload. Check casing of 'inlineData' in the request body.`);
+      }
 
       if (response.status === 404) {
         throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
@@ -286,7 +292,7 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
                 text: prompt
               },
               {
-                inline_data: {
+                inlineData: { // FIX: Changed 'inline_data' to 'inlineData'
                   mime_type: file.type,
                   data: base64Image.split(',')[1]
                 }
