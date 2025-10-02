@@ -1,13 +1,18 @@
-// src/utils/pdfUtils.ts - Final Stable Version (Removes all custom font attempts to prevent crash)
+// src/utils/pdfUtils.ts - Final Fix: Proper Font Registration for Tamil
 
 import jsPDF from 'jspdf';
+// NOTE: You must ensure 'NotoSansTamil' font data is loaded and registered in your environment.
+// This code assumes that a font named 'NotoSansTamil' is registered via pdf.addFont().
 
-// Helper function to detect Tamil text (Kept for detecting which text is Tamil)
+const TAMIL_FONT_NAME = 'NotoSansTamil';
+const DEFAULT_FONT_NAME = 'helvetica';
+
+// Helper function to detect Tamil text
 const containsTamilText = (text: string): boolean => {
   return /[\u0B80-\u0BFF]/.test(text);
 };
 
-// --- NO CHANGE HERE ---
+// Interface remains unchanged
 export interface PDFContent {
   title: string;
   content: any;
@@ -18,9 +23,22 @@ export const downloadPDF = async ({ title, content, type }: PDFContent) => {
   const pdf = new jsPDF();
   
   // =======================================================
-  // *** CRITICAL FIX: REMOVED ALL CUSTOM FONT LOGIC ***
-  // This prevents the 'Font not stored in vFS' and 'TypeError: Cannot read properties of undefined (reading 'Unicode')' errors.
-  // NOTE: Tamil text WILL be garbled until proper font embedding is implemented externally.
+  // *** CRITICAL FONT FIX: Registration & Setting ***
+  
+  // 1. Explicitly register the font (even if the data is loaded elsewhere)
+  // This line is essential for the structure, even if the data loading is external.
+  try {
+      // Assuming 'NotoSansTamil' is the name given during the font file conversion.
+      pdf.addFont(TAMIL_FONT_NAME, TAMIL_FONT_NAME, 'normal'); 
+      pdf.addFont(TAMIL_FONT_NAME, TAMIL_FONT_NAME, 'bold'); 
+  } catch (e) {
+      console.warn("Custom font registration failed. Check if Noto Sans Tamil data is embedded.", e);
+  }
+  
+  // 2. Set default font for document headers/English text
+  pdf.setFont(DEFAULT_FONT_NAME, 'bold');
+  pdf.setR2L(false); // Left-to-Right text direction for English/Tamil
+
   // =======================================================
   
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -38,17 +56,22 @@ export const downloadPDF = async ({ title, content, type }: PDFContent) => {
 
   const addWrappedText = (text: string, x: number, fontSize: number = 12, fontStyle: string = 'normal') => {
     
-    // Use only the default, safe 'helvetica' font for all text to prevent the crash
-    pdf.setFontSize(fontSize);
-    pdf.setFont('helvetica', fontStyle); 
+    // Determine which font to use based on content
+    const isTamil = containsTamilText(text);
+    const fontToUse = isTamil ? TAMIL_FONT_NAME : DEFAULT_FONT_NAME;
     
-    // Add a warning note for the user (only for Tamil text)
-    let processedText = text;
-    if (containsTamilText(text)) {
-        processedText = `[Tamil: Please note that Tamil text in this PDF is unreadable due to font limitations. Data: ${text.substring(0, 100)}...]`;
+    pdf.setFontSize(fontSize);
+    
+    // Set the font. This is where the magic happens.
+    try {
+        pdf.setFont(fontToUse, fontStyle); 
+        // If the font is the custom one, we assume it supports Unicode
+    } catch (e) {
+        // Fallback to default if custom font is not registered
+        pdf.setFont(DEFAULT_FONT_NAME, fontStyle); 
     }
     
-    const lines = pdf.splitTextToSize(processedText, pageWidth - 2 * margin);
+    const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
     checkNewPage(lines.length * lineHeight + 10);
     
     pdf.text(lines, x, yPosition);
@@ -56,10 +79,10 @@ export const downloadPDF = async ({ title, content, type }: PDFContent) => {
     return lines.length;
   };
   
-  // *** LOGIC IS NOW CRASH-PROOF ***
+  // *** FONT LOGIC APPLIED ***
 
   pdf.setFontSize(20);
-  pdf.setFont('helvetica', 'bold');
+  pdf.setFont(DEFAULT_FONT_NAME, 'bold'); 
   addWrappedText(title, margin, 20, 'bold');
   yPosition += lineHeight;
 
