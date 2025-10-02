@@ -2,7 +2,18 @@ import { AnalysisResult, QuestionResult } from "@/components/StudyAssistant";
 import { extractTextFromPdfPage, extractPageRangeFromOcr } from "@/utils/pdfReader";
 import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 
-const GEMINI_API_KEY = "AIzaSyCPXJi_EkEjbYFJ6kaCkRsnlSGcDvFWK5s";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyCPXJi_EkEjbYFJ6kaCkRsnlSGcDvFWK5s";
+
+const API_CONFIG = {
+  primaryModel: "gemini-1.5-flash",
+  fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
+  apiVersion: "v1beta",
+  baseUrl: "https://generativelanguage.googleapis.com"
+};
+
+const getApiUrl = (model: string) => {
+  return `${API_CONFIG.baseUrl}/${API_CONFIG.apiVersion}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+};
 
 export const analyzeImage = async (file: File, outputLanguage: "english" | "tamil" = "english"): Promise<AnalysisResult> => {
   try {
@@ -58,7 +69,7 @@ MEMORY TIP GUIDELINES:
 - Examples: "Remember VIBGYOR for rainbow colors" or "My Very Educated Mother Just Served Us Nachos for planets"
 `;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -90,6 +101,11 @@ MEMORY TIP GUIDELINES:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
@@ -123,10 +139,10 @@ MEMORY TIP GUIDELINES:
 export const extractRawTextFromImage = async (file: File): Promise<string> => {
   try {
     const base64Image = await convertToBase64(file);
-    
+
     const prompt = `Extract all text from this image. Provide only the raw, unformatted text content exactly as it appears. Do not add any formatting, analysis, or extra characters.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -158,12 +174,17 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!content) {
       throw new Error('No content received from Gemini API');
     }
@@ -227,7 +248,7 @@ export const generateQuestions = async (
       const enrichmentPromises = extractedQuestions.map(q => {
         const enrichmentPrompt = createEnrichmentPrompt(q, outputLanguage);
         
-        return fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+        return fetch(getApiUrl(API_CONFIG.primaryModel), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -309,8 +330,8 @@ Return as a JSON array with this exact structure:
 ]
 CRITICAL: The "answer" field MUST contain only the single capital letter of the correct option (A, B, C, or D).
 `;
-    
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -326,12 +347,17 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!content) {
       throw new Error('No content received from Gemini API during question generation');
     }
@@ -417,7 +443,7 @@ Focus on:
 - Make key points factual and specific from the actual content
 `;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -443,19 +469,24 @@ Focus on:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!content) {
       throw new Error('No content received from Gemini API');
     }
 
     const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
     const analysis = JSON.parse(cleanedContent);
-    
+
     return {
       page: pageNumber,
       keyPoints: analysis.keyPoints || [],
@@ -565,7 +596,7 @@ MEMORY TIP GUIDELINES:
 `;
 
         try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+          const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -591,6 +622,11 @@ MEMORY TIP GUIDELINES:
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`Failed to analyze page ${pageNumber}:`, errorText);
+
+            if (response.status === 404) {
+              console.error(`Model not found for page ${pageNumber}. Using primary model: '${API_CONFIG.primaryModel}'`);
+            }
+
             continue;
           }
 
@@ -697,7 +733,7 @@ MEMORY TIP GUIDELINES:
 - Examples: "Remember VIBGYOR for rainbow colors" or "My Very Educated Mother Just Served Us Nachos for planets"
 `;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -723,6 +759,11 @@ MEMORY TIP GUIDELINES:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
@@ -820,7 +861,7 @@ MEMORY TIP GUIDELINES:
 - Examples: "Remember VIBGYOR for rainbow colors" or "My Very Educated Mother Just Served Us Nachos for planets"
 `;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -846,6 +887,11 @@ MEMORY TIP GUIDELINES:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
