@@ -15,6 +15,76 @@ const getApiUrl = (model: string) => {
   return `${API_CONFIG.baseUrl}/${API_CONFIG.apiVersion}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 };
 
+// ========================================================================
+// INTERNAL FUNCTION: OCR TEXT TO STRUCTURED QUESTIONS
+// ========================================================================
+const extractQuestionsFromText = async (ocrText: string, outputLanguage: "english" | "tamil"): Promise<any[]> => {
+  const languageInstruction = outputLanguage === "tamil" 
+    ? "Please provide all questions, options, and explanations in Tamil language. Use Tamil script."
+    : "Please provide all content in English language.";
+
+  const prompt = `
+You are a highly accurate question paper extractor and parser.
+Extract all questions, their options, and identify the correct answer key (A, B, C, or D) from the following raw OCR text.
+
+${languageInstruction}
+
+OCR Text to Parse:
+---
+${ocrText}
+---
+
+CRITICAL INSTRUCTIONS:
+- You MUST return a JSON array containing ONLY the extracted question objects.
+- Do NOT add any extra commentary or text outside the JSON block.
+- For each question, infer the correct answer (A, B, C, or D) based on common knowledge/context.
+- You MUST provide a short explanation for the correct answer.
+- Assign a difficulty level and TNPSC Group based on the content.
+
+Return as a JSON array with this exact structure (max 15 questions):
+[
+  {
+    "question": "Question text here (both English and Tamil if available)",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": "A", // MUST be A, B, C, or D
+    "type": "mcq",
+    "difficulty": "medium",
+    "tnpscGroup": "Group 1",
+    "explanation": "Brief explanation of the answer"
+  }
+]
+`;
+
+  const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3, // Low temperature for deterministic extraction
+        maxOutputTokens: 4096,
+        response_mime_type: "application/json",
+      }
+    })
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Gemini API Extraction error response:', errorText);
+    throw new Error(`Gemini API Extraction error (${response.status}): ${errorText.substring(0, 200)}...`);
+  }
+
+  const data = await response.json();
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  if (!content) {
+    throw new Error('No content received from Gemini API during structured extraction.');
+  }
+
+  const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+  return JSON.parse(cleanedContent) as any[];
+};
+
 // New internal function to perform analysis on text content (Text-Only, simplest structure)
 const analyzeTextContent = async (textContent: string, outputLanguage: "english" | "tamil"): Promise<any> => {
   const languageInstruction = outputLanguage === "tamil" 
@@ -41,7 +111,6 @@ Please provide a comprehensive analysis in the following JSON format:
     {
       "point": "Specific factual point (max 1 sentence)",
       "importance": "high/medium/low",
-      // FIX: New memory tip requirement for TNPSC students
       "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
@@ -117,7 +186,6 @@ Please provide a comprehensive analysis in the following JSON format:
     {
       "point": "Specific factual point (max 1 sentence)",
       "importance": "high/medium/low",
-      // FIX: New memory tip requirement for TNPSC students
       "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
@@ -370,6 +438,9 @@ Focus on:
 `;
 };
 
+// ========================================================================
+// CORE FUNCTION: GENERATE QUESTIONS (NOW INCLUDES EXTRACTION FALLBACK)
+// ========================================================================
 export const generateQuestions = async (
   analysisResults: AnalysisResult[],
   difficulty: string = "medium",
@@ -379,56 +450,35 @@ export const generateQuestions = async (
   try {
     // --- PATH 1: "EXTRACT, THEN ENRICH" for Question Papers ---
     if (fullOcrText) {
-      // STEP 1: PURE EXTRACTION
-      console.log("Starting Step 1: Extracting questions from OCR text...");
-      const extractedQuestions = await parseQuestionPaperOcr(fullOcrText);
+      // STEP 1: PURE EXTRACTION (Attempt client-side first)
+      console.log("Starting Step 1: Extracting questions from OCR text (Client-side parser)...");
+      let extractedQuestions = await parseQuestionPaperOcr(fullOcrText);
       console.log(`Extraction complete. Found ${extractedQuestions.length} questions.`);
 
       if (!extractedQuestions || extractedQuestions.length === 0) {
-        throw new Error("Extraction resulted in zero questions. The document might not be a question paper or the text is unreadable.");
+        // STEP 1b: FALLBACK EXTRACTION (Use Gemini for structured extraction)
+        console.warn("Client-side parser failed. Falling back to Gemini for structured question extraction.");
+        extractedQuestions = await extractQuestionsFromText(fullOcrText, outputLanguage);
+        console.log(`Gemini Extraction complete. Found ${extractedQuestions.length} questions.`);
+        
+        if (!extractedQuestions || extractedQuestions.length === 0) {
+            throw new Error("Extraction resulted in zero questions. The document might not be a question paper or the text is unreadable.");
+        }
       }
 
-      // STEP 2: ENRICHMENT (in parallel)
-      console.log("Starting Step 2: Enriching each question with explanations...");
-      const enrichmentPromises = extractedQuestions.map(q => {
-        const enrichmentPrompt = createEnrichmentPrompt(q, outputLanguage);
-        
-        return fetch(getApiUrl(API_CONFIG.primaryModel), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: enrichmentPrompt }] }],
-            generationConfig: {
-                temperature: 0.5,
-                maxOutputTokens: 512,
-                response_mime_type: "application/json",
-            },
-          })
-        })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-            if (!data) {
-                return { ...q, type: "mcq", difficulty, explanation: "Could not generate explanation.", tnpscGroup: "N/A" };
-            }
-            const enrichedDataText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            const enrichedData = JSON.parse(enrichedDataText);
-            
-            return {
-                ...q,
-                type: "mcq",
-                difficulty,
-                explanation: enrichedData.explanation || "",
-                tnpscGroup: enrichedData.tnpscGroup || "Group 1",
-            };
-        });
-      });
+      // STEP 2: Enrichment is now done inside extractQuestionsFromText, so we just map the result
+      const enrichedQuestions = extractedQuestions.map(q => ({
+          ...q,
+          type: q.type || "mcq", 
+          difficulty: q.difficulty || "medium", 
+          explanation: q.explanation || "", 
+          tnpscGroup: q.tnpscGroup || "Group 1",
+      }));
 
-      const enrichedQuestions = await Promise.all(enrichmentPromises);
-      console.log("Enrichment complete.");
 
       return {
         questions: enrichedQuestions,
-        summary: `Extracted and enriched ${enrichedQuestions.length} questions from the provided document.`,
+        summary: `Extracted and structured ${enrichedQuestions.length} questions from the provided document.`,
         keyPoints: [],
         difficulty,
         totalQuestions: enrichedQuestions.length,
