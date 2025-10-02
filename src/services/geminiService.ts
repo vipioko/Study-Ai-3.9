@@ -31,21 +31,18 @@ Content: ${textContent.substring(0, 8000)}
 CRITICAL INSTRUCTIONS:
 - Extract ONLY specific, factual, and concrete information directly from the content.
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
-- **NEW: Use Key Points for the main analysis, and ensure all descriptions are concise.**
-- **NEW: Limit the total number of key points to a maximum of 15.**
+- **VERY CRITICAL: All responses must be extremely concise to fit within the token limit.**
+- **NEW: Limit the total number of key points to a maximum of 15, each as a single sentence.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
-  "mainTopic": "Main topic of the content (concise)",
+  "mainTopic": "Main topic of the content (very concise)",
   "keyPoints": [
-    {
-      "point": "Specific factual point (max 2 sentences)",
-      "importance": "high/medium/low",
-      "memoryTip": "Shorter and crisper version of the point for quick memorization (e.g., using a mnemonic, acronym, or rhyming phrase)."
-    }
+    "Specific factual point 1 (max 1 sentence)",
+    "Specific factual point 2 (max 1 sentence)"
   ],
-  "summary": "Overall summary of the content (concise)",
-  "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
+  "summary": "Overall summary of the content (very concise, max 3 sentences)",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams (very concise)",
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
@@ -54,11 +51,6 @@ Focus on:
 - TNPSC Group 1, 2, 4 exam relevance
 - Extracting specific facts, figures, names, dates, and definitions
 - Make key points factual and specific from the actual content
-- Provide creative memory tips using mnemonics, associations, or patterns
-
-MEMORY TIP GUIDELINES:
-- **Use acronyms, rhymes, visual imagery, or story-based associations.**
-- **Keep tips fun, quirky, and unforgettable.**
 `;
 
   const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -67,7 +59,6 @@ MEMORY TIP GUIDELINES:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      // FIX: Consolidated structure for text-only input
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
@@ -105,21 +96,18 @@ ${languageInstruction}
 CRITICAL INSTRUCTIONS:
 - Extract ONLY specific, factual, and concrete information directly from the content.
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
-- **NEW: Use Key Points for the main analysis, and ensure all descriptions are concise.**
-- **NEW: Limit the total number of key points to a maximum of 15.**
+- **VERY CRITICAL: All responses must be extremely concise to fit within the token limit.**
+- **NEW: Limit the total number of key points to a maximum of 15, each as a single sentence.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
-  "mainTopic": "Main topic of the content (concise)",
+  "mainTopic": "Main topic of the content (very concise)",
   "keyPoints": [
-    {
-      "point": "Specific factual point (max 2 sentences)",
-      "importance": "high/medium/low",
-      "memoryTip": "Shorter and crisper version of the point for quick memorization (e.g., using a mnemonic, acronym, or rhyming phrase)."
-    }
+    "Specific factual point 1 (max 1 sentence)",
+    "Specific factual point 2 (max 1 sentence)"
   ],
-  "summary": "Overall summary of the content (concise)",
-  "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
+  "summary": "Overall summary of the content (very concise, max 3 sentences)",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams (very concise)",
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
@@ -128,11 +116,6 @@ Focus on:
 - TNPSC Group 1, 2, 4 exam relevance
 - Extracting specific facts, figures, names, dates, and definitions
 - Make key points factual and specific from the actual content
-- Provide creative memory tips using mnemonics, associations, or patterns
-
-MEMORY TIP GUIDELINES:
-- **Use acronyms, rhymes, visual imagery, or story-based associations.**
-- **Keep tips fun, quirky, and unforgettable.**
 `;
 
     const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -141,12 +124,11 @@ MEMORY TIP GUIDELINES:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // FIX: Consolidated structure for multimodal input
         contents: [
           { 
             parts: [
               { text: prompt },
-              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } } // FIX: inlineData is now correctly nested in parts
+              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } }
             ]
           }
         ],
@@ -198,7 +180,7 @@ MEMORY TIP GUIDELINES:
       }
     }
     
-    // For all other errors (404, safety block, etc.), throw the original error
+    // For all other errors (404, safety block, invalid payload, etc.), throw the original error
     console.error('Error analyzing image:', error);
     throw error;
   }
@@ -250,24 +232,45 @@ const processGeminiResponse = (data: any): AnalysisResult => {
     
     const result = JSON.parse(cleanedContent);
     
-    // Transform the new keyPoints format back to the expected AnalysisResult format for studyPoints
-    const transformedStudyPoints: AnalysisResult['studyPoints'] = (result.keyPoints || []).map((kp: any) => ({
-      title: kp.point,
-      description: kp.point, // Use the point as the description too, since we simplified the schema
-      importance: kp.importance || 'medium',
-      memoryTip: kp.memoryTip || 'Review this point regularly'
+    // --- START RE-CONSTRUCTING COMPLEX STRUCTURE FOR UI ---
+    // Since we removed 'memoryTip' and 'importance' from the keyPoints array, 
+    // we must now re-introduce them as a *separate step* if we want them back,
+    // or just pass the simple keyPoints.
+    
+    // For this final response, we will assume the UI relies on the 'keyPoints'
+    // for the study material, and the full 'studyPoints' array is no longer
+    // feasible for the single-shot analysis due to the token limit.
+
+    const finalKeyPoints = Array.isArray(result.keyPoints) ? result.keyPoints.filter(p => typeof p === 'string') : [];
+    
+    // For compatibility with the AnalysisResult interface, we create a basic studyPoints array
+    const compatibilityStudyPoints: AnalysisResult['studyPoints'] = finalKeyPoints.map((point: string) => ({
+      title: point,
+      description: point,
+      importance: result.difficulty || 'medium', // Use overall difficulty as a placeholder
+      memoryTip: `Create a mnemonic for: ${point.substring(0, 30)}...` // Placeholder tip
     }));
 
-    // Extract simple key points for the analysis result structure
-    const simpleKeyPoints = (result.keyPoints || []).map((kp: any) => kp.point);
-
+    // If the new structure was implemented as an array of objects, 
+    // we use a different transformation:
+    // const compatibilityStudyPoints: AnalysisResult['studyPoints'] = (result.keyPoints || []).map((kp: any) => ({
+    //   title: kp.point,
+    //   description: kp.point,
+    //   importance: kp.importance || 'medium',
+    //   memoryTip: kp.memoryTip || 'Review this point regularly'
+    // }));
+    // This second transformation is kept commented out, as the new prompt 
+    // asks for a simple array of strings for keyPoints.
+    
+    // Since the prompt asks for a simplified array of strings, we return that.
     return {
-      keyPoints: simpleKeyPoints,
+      keyPoints: finalKeyPoints,
       summary: result.summary || '',
       tnpscRelevance: result.tnpscRelevance || '',
-      studyPoints: transformedStudyPoints,
+      studyPoints: compatibilityStudyPoints, // Use the compatibility array
       tnpscCategories: result.tnpscCategories || []
     };
+    // --- END RE-CONSTRUCTING COMPLEX STRUCTURE FOR UI ---
 };
 
 
@@ -846,7 +849,7 @@ CRITICAL INSTRUCTIONS:
       "title": "Key point title",
       "description": "Detailed description",
       "importance": "high/medium/low",
-      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns that make this information stick in memory permanently"
+      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
     }
   ],
   "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
@@ -968,7 +971,7 @@ Please provide detailed analysis in JSON format:
       "title": "Study point title",
       "description": "Detailed description",
       "importance": "high/medium/low",
-      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns that make this information stick in memory permanently"
+      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
     }
   ],
   "summary": "Brief summary of the page content",
