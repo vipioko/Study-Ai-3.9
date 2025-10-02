@@ -38,8 +38,11 @@ Please provide a comprehensive analysis in the following JSON format:
 {
   "mainTopic": "Main topic of the content (very concise)",
   "keyPoints": [
-    "Specific factual point 1 (max 1 sentence)",
-    "Specific factual point 2 (max 1 sentence)"
+    {
+      "point": "Specific factual point (max 1 sentence)",
+      "importance": "high/medium/low",
+      "memoryTip": "Shorter and crisper explanation of the point (max 5 words) for quick review. DO NOT create a complex mnemonic."
+    }
   ],
   "summary": "Overall summary of the content (very concise, max 3 sentences)",
   "tnpscRelevance": "How this content is relevant for TNPSC exams (very concise)",
@@ -59,6 +62,7 @@ Focus on:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      // FIX: Consolidated structure for text-only input
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
@@ -103,8 +107,11 @@ Please provide a comprehensive analysis in the following JSON format:
 {
   "mainTopic": "Main topic of the content (very concise)",
   "keyPoints": [
-    "Specific factual point 1 (max 1 sentence)",
-    "Specific factual point 2 (max 1 sentence)"
+    {
+      "point": "Specific factual point (max 1 sentence)",
+      "importance": "high/medium/low",
+      "memoryTip": "Shorter and crisper explanation of the point (max 5 words) for quick review. DO NOT create a complex mnemonic."
+    }
   ],
   "summary": "Overall summary of the content (very concise, max 3 sentences)",
   "tnpscRelevance": "How this content is relevant for TNPSC exams (very concise)",
@@ -124,11 +131,12 @@ Focus on:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // FIX: Consolidated structure for multimodal input
         contents: [
           { 
             parts: [
               { text: prompt },
-              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } }
+              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } } // FIX: inlineData is now correctly nested in parts
             ]
           }
         ],
@@ -232,45 +240,26 @@ const processGeminiResponse = (data: any): AnalysisResult => {
     
     const result = JSON.parse(cleanedContent);
     
-    // --- START RE-CONSTRUCTING COMPLEX STRUCTURE FOR UI ---
-    // Since we removed 'memoryTip' and 'importance' from the keyPoints array, 
-    // we must now re-introduce them as a *separate step* if we want them back,
-    // or just pass the simple keyPoints.
+    // Transform the new keyPoints format back to the expected AnalysisResult format for studyPoints
+    const finalKeyPoints = Array.isArray(result.keyPoints) ? result.keyPoints.filter(p => typeof p === 'object' && p !== null) : [];
     
-    // For this final response, we will assume the UI relies on the 'keyPoints'
-    // for the study material, and the full 'studyPoints' array is no longer
-    // feasible for the single-shot analysis due to the token limit.
-
-    const finalKeyPoints = Array.isArray(result.keyPoints) ? result.keyPoints.filter(p => typeof p === 'string') : [];
-    
-    // For compatibility with the AnalysisResult interface, we create a basic studyPoints array
-    const compatibilityStudyPoints: AnalysisResult['studyPoints'] = finalKeyPoints.map((point: string) => ({
-      title: point,
-      description: point,
-      importance: result.difficulty || 'medium', // Use overall difficulty as a placeholder
-      memoryTip: `Create a mnemonic for: ${point.substring(0, 30)}...` // Placeholder tip
+    const transformedStudyPoints: AnalysisResult['studyPoints'] = finalKeyPoints.map((kp: any) => ({
+      title: kp.point || 'Key Point',
+      description: kp.point || 'No description provided.',
+      importance: kp.importance || 'medium',
+      memoryTip: kp.memoryTip || 'Review this point regularly' 
     }));
 
-    // If the new structure was implemented as an array of objects, 
-    // we use a different transformation:
-    // const compatibilityStudyPoints: AnalysisResult['studyPoints'] = (result.keyPoints || []).map((kp: any) => ({
-    //   title: kp.point,
-    //   description: kp.point,
-    //   importance: kp.importance || 'medium',
-    //   memoryTip: kp.memoryTip || 'Review this point regularly'
-    // }));
-    // This second transformation is kept commented out, as the new prompt 
-    // asks for a simple array of strings for keyPoints.
-    
-    // Since the prompt asks for a simplified array of strings, we return that.
+    // Extract simple key points for the analysis result structure
+    const simpleKeyPoints = finalKeyPoints.map((kp: any) => kp.point);
+
     return {
-      keyPoints: finalKeyPoints,
+      keyPoints: simpleKeyPoints,
       summary: result.summary || '',
       tnpscRelevance: result.tnpscRelevance || '',
-      studyPoints: compatibilityStudyPoints, // Use the compatibility array
+      studyPoints: transformedStudyPoints, 
       tnpscCategories: result.tnpscCategories || []
     };
-    // --- END RE-CONSTRUCTING COMPLEX STRUCTURE FOR UI ---
 };
 
 
