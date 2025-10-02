@@ -5,7 +5,6 @@ import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
-  // Keeping gemini-2.5-flash as the primary model.
   primaryModel: "gemini-2.5-flash",
   fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
   apiVersion: "v1beta",
@@ -16,7 +15,7 @@ const getApiUrl = (model: string) => {
   return `${API_CONFIG.baseUrl}/${API_CONFIG.apiVersion}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 };
 
-// New internal function to perform analysis on text content
+// New internal function to perform analysis on text content (Text-Only, simplest structure)
 const analyzeTextContent = async (textContent: string, outputLanguage: "english" | "tamil"): Promise<any> => {
   const languageInstruction = outputLanguage === "tamil" 
     ? "Please provide all responses in Tamil language. Use Tamil script for all content."
@@ -68,6 +67,7 @@ MEMORY TIP GUIDELINES:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      // FIX: Consolidated structure for text-only input
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
@@ -141,9 +141,14 @@ MEMORY TIP GUIDELINES:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // FIX: Consolidated structure for multimodal input
         contents: [
-          { parts: [{ text: prompt }] },
-          { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } } // FIX: Changed 'inline_data' to 'inlineData'
+          { 
+            parts: [
+              { text: prompt },
+              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } } // FIX: inlineData is now correctly nested in parts
+            ]
+          }
         ],
         generationConfig: {
           temperature: 0.7,
@@ -156,12 +161,6 @@ MEMORY TIP GUIDELINES:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response (Direct Image Analysis):', errorText);
-
-      // Check if the error is the expected 400 Bad Request about inlineData
-      if (response.status === 400 && errorText.includes('inline_data')) {
-           // Re-throw with more specific message indicating the code is wrong, though it should be fixed now.
-           throw new Error(`Gemini API error (400): Invalid payload. Check casing of 'inlineData' in the request body.`);
-      }
 
       if (response.status === 404) {
         throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
@@ -285,6 +284,7 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // FIX: Consolidated structure for multimodal input
         contents: [
           {
             parts: [
@@ -292,7 +292,7 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
                 text: prompt
               },
               {
-                inlineData: { // FIX: Changed 'inline_data' to 'inlineData'
+                inlineData: { // FIX: inlineData is correctly nested in parts
                   mime_type: file.type,
                   data: base64Image.split(',')[1]
                 }
