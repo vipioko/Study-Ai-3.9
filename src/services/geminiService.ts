@@ -5,11 +5,10 @@ import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
 
 const API_CONFIG = {
-  // FIX APPLIED HERE: Changed from "gemini-1.5-flash" (alias, which was giving 404) 
-  // to the versioned model name "gemini-1.5-flash-001" which is often more stable/available 
-  // on the v1beta endpoint.
-  primaryModel: "gemini-1.5-flash-001",
-  // Keeping the original fallback models for now to minimize changes.
+  // FIX APPLIED HERE: Switching to the latest, stable, multimodal model alias 
+  // which is typically available across most API keys/endpoints.
+  primaryModel: "gemini-2.5-flash",
+  // Keeping fallback models for reference, though the current functions only use primaryModel.
   fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
   apiVersion: "v1beta",
   baseUrl: "https://generativelanguage.googleapis.com"
