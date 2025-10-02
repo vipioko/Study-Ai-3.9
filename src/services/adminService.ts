@@ -1,5 +1,5 @@
 // src/services/adminService.ts
-// VERSION: Final - With the new coordinator function for OCR processing.
+// VERSION: Final - Using GeminiService.ts for direct OCR processing
 
 import { 
   collection, 
@@ -23,6 +23,11 @@ import {
 import { db, storage } from "@/config/firebase";
 import { Category, QuestionBank, Quiz } from "@/types/admin";
 
+// ** NEW IMPORTS FOR DIRECT GEMINI/OCR PROCESSING **
+import { extractRawTextFromImage } from "./geminiService";
+import { extractAllPdfText } from "@/utils/pdfReader"; 
+// Note: We don't need parseQuestionPaperOcr here; the frontend component will manage Q&A logic.
+
 // Helper function to generate file hash (Unchanged)
 const generateFileHash = async (file: File): Promise<string> => {
   const buffer = await file.arrayBuffer();
@@ -31,44 +36,23 @@ const generateFileHash = async (file: File): Promise<string> => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// Function to call your Cloud Run service for OCR (Unchanged)
-export const fetchOcrTextFromVision = async (fileUrl: string): Promise<string> => {
-  try {
-    const response = await fetch('https://ocr-image-processor-747684597937.us-central1.run.app', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileUrl }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Cloud Function error: ${errorData.error || response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.fullText || '';
-  } catch (error) {
-    console.error('Error fetching OCR text from Cloud Function:', error);
-    throw error;
-  }
-};
+// ** REMOVED: fetchOcrTextFromVision is no longer needed **
 
 
 // ========================================================================
-//  NEW COORDINATOR FUNCTION - THE MAIN FIX
+//  UPDATED COORDINATOR FUNCTION - NOW USES GEMINI SERVICE FOR OCR
 // ========================================================================
 /**
- * Handles the complete process: uploads a file, triggers OCR, and saves the 
- * Question Bank with the OCR text to Firestore.
- * This is the function your file upload form component should call.
+ * Handles the complete process: uploads a file, performs OCR/Text Extraction 
+ * using GeminiService (or local utility), and saves the Question Bank to Firestore.
  */
 export const createQuestionBankWithOcr = async (
   file: File,
   userId: string,
-  bankData: Omit<QuestionBank, 'id' | 'uploadDate' | 'fileUrl' | 'fileName' | 'fileHash' | 'fileSize' | 'fileType' | 'uploadedBy' | 'fullOcrText' | 'isActive'>
+  bankData: Omit<QuestionBank, 'id' | 'uploadDate' | 'fileUrl' | 'fileName' | 'fileHash' | 'fileSize' | 'fileType' | 'uploadedBy' | 'fullOcrText' | 'isActive' | 'totalQuestions'>
 ): Promise<string> => {
   try {
-    // Step 1: Upload the file to Firebase Storage
+    // Step 1: Upload the file to Firebase Storage (MUST HAPPEN FIRST to handle file size/errors)
     console.log("Step 1: Uploading file...");
     const fileHash = await generateFileHash(file);
     const timestamp = Date.now();
@@ -79,13 +63,37 @@ export const createQuestionBankWithOcr = async (
     const fileUrl = await getDownloadURL(storageRef);
     console.log("File uploaded successfully:", fileUrl);
 
-    // Step 2: Call the Cloud Run service to get the OCR text
-    console.log("Step 2: Fetching OCR text...");
-    const ocrText = await fetchOcrTextFromVision(fileUrl);
-    console.log("OCR text received.");
+    // Step 2: Perform OCR/Text Extraction using local/Gemini service
+    let ocrText = "";
+    try {
+      console.log("Step 2: Performing OCR/Text Extraction...");
+      if (file.type === 'application/pdf') {
+          // For PDFs, try local extraction first (faster/cheaper)
+          ocrText = await extractAllPdfText(file);
+          if (!ocrText || ocrText.trim().length < 50) {
+              console.warn("Local PDF text extraction failed or was too short. Falling back to Gemini OCR.");
+              // Fallback to Gemini for image-based OCR on PDF
+              ocrText = await extractRawTextFromImage(file);
+          }
+      } else if (file.type.startsWith('image/')) {
+          // For images, use the Gemini OCR function
+          ocrText = await extractRawTextFromImage(file);
+      } else {
+          throw new Error("Unsupported file type for OCR processing.");
+      }
+
+      if (!ocrText || ocrText.trim().length < 50) {
+          throw new Error("OCR failed to extract sufficient text from the file.");
+      }
+      console.log("OCR text received, length:", ocrText.length);
+
+    } catch (error) {
+        console.error("OCR/Extraction Failed:", error);
+        throw new Error(`OCR/Extraction failed: ${(error as Error).message}`);
+    }
 
     // Step 3: Prepare the complete data object for Firestore
-    const fullBankData: Omit<QuestionBank, 'id'> = {
+    const fullBankData: Omit<QuestionBank, 'id' | 'totalQuestions'> = {
       ...bankData,
       fileUrl,
       fileName: uniqueFileName,
@@ -96,6 +104,7 @@ export const createQuestionBankWithOcr = async (
       uploadDate: Timestamp.now(),
       isActive: true,
       fullOcrText: ocrText || "", // CRITICAL: Save the OCR text here
+      totalQuestions: 0, // Set to 0 initially, or run a quick count utility here
     };
 
     // Step 4: Add the complete Question Bank document to Firestore
@@ -110,11 +119,11 @@ export const createQuestionBankWithOcr = async (
   }
 };
 
-// NEW FUNCTION: Create Question Bank from JSON file
+// NEW FUNCTION: Create Question Bank from JSON file (Unchanged)
 export const createQuestionBankFromJson = async (
   jsonFile: File,
   userId: string,
-  bankData: Omit<QuestionBank, 'id' | 'uploadDate' | 'fileUrl' | 'fileName' | 'fileHash' | 'fileSize' | 'fileType' | 'uploadedBy' | 'fullOcrText' | 'isActive'>
+  bankData: Omit<QuestionBank, 'id' | 'uploadDate' | 'fileUrl' | 'fileName' | 'fileHash' | 'fileSize' | 'fileType' | 'uploadedBy' | 'fullOcrText' | 'isActive' | 'totalQuestions'>
 ): Promise<string> => {
   try {
     // Step 1: Read the JSON file
@@ -135,7 +144,7 @@ export const createQuestionBankFromJson = async (
     const fileHash = await generateFileHash(jsonFile);
 
     // Step 3: Prepare the complete data object for Firestore
-    const fullBankData: Omit<QuestionBank, 'id'> = {
+    const fullBankData: Omit<QuestionBank, 'id' | 'totalQuestions'> = {
       ...bankData,
       fileUrl: "", // No file URL for JSON uploads
       fileName: jsonFile.name,
@@ -146,6 +155,7 @@ export const createQuestionBankFromJson = async (
       uploadDate: Timestamp.now(),
       isActive: true,
       fullOcrText: ocrText,
+      totalQuestions: 0, // Can be updated later after question parsing
     };
 
     // Step 4: Add the complete Question Bank document to Firestore
