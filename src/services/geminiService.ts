@@ -32,23 +32,23 @@ CRITICAL INSTRUCTIONS:
 - Extract ONLY specific, factual, and concrete information directly from the content
 - DO NOT include generic statements about importance or what needs to be studied
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
-- Provide practical memory tips for each study point to help with retention
-- **NEW: Ensure Memory Tip is a single, concise phrase or bulleted list of 2-3 critical keywords/facts (e.g., '42 Amend-76, 51A, 10 duties') for rapid TNPSC review.**
+- **VERY CRITICAL: All content, especially 'description' and 'memoryTip', must be concise to avoid token overflow.**
+- **Limit the total number of studyPoints to a maximum of 10.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
   "mainTopic": "Main topic of the content",
   "studyPoints": [
     {
-      "title": "Key point title",
-      "description": "Detailed description",
+      "title": "Key point title (Very Concise)",
+      "description": "Detailed description (Max 3 concise sentences)",
       "importance": "high/medium/low",
-      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review."
+      // FIX: Memory tip optimized for TNPSC review
+      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
-  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
-  "summary": "Overall summary of the content",
-  "tnpscRelevance": "How this content is relevant for TNPSC exams",
+  "summary": "Overall summary of the content (Max 3 concise sentences)",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
@@ -57,11 +57,8 @@ Focus on:
 - TNPSC Group 1, 2, 4 exam relevance
 - Extracting specific facts, figures, names, dates, and definitions
 - Make key points factual and specific from the actual content
-- Provide creative memory tips using mnemonics, associations, or patterns
 
 MEMORY TIP GUIDELINES:
-- **Use acronyms, rhymes, visual imagery, or story-based associations.**
-- **Keep tips fun, quirky, and unforgettable.**
 - **CRITICAL: The tip must synthesize the point into a very short, memorable TNPSC-relevant summary (keywords, dates, articles).**
 `;
 
@@ -105,27 +102,30 @@ Analyze this image for TNPSC (Tamil Nadu Public Service Commission) exam prepara
 
 ${languageInstruction}
 
+Content: (The image)
+
 CRITICAL INSTRUCTIONS:
 - Extract ONLY specific, factual, and concrete information directly from the content
 - DO NOT include generic statements about importance or what needs to be studied
 - Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
 - Provide practical memory tips for each study point to help with retention
-- **NEW: Ensure Memory Tip is a single, concise phrase or bulleted list of 2-3 critical keywords/facts (e.g., '42 Amend-76, 51A, 10 duties') for rapid TNPSC review.**
+- **VERY CRITICAL: All content, especially 'description' and 'memoryTip', must be concise to avoid token overflow.**
+- **Limit the total number of studyPoints to a maximum of 10.**
 
 Please provide a comprehensive analysis in the following JSON format:
 {
   "mainTopic": "Main topic of the content",
   "studyPoints": [
     {
-      "title": "Key point title",
-      "description": "Detailed description",
+      "title": "Key point title (Very Concise)",
+      "description": "Detailed description (Max 3 concise sentences)",
       "importance": "high/medium/low",
-      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review."
+      // FIX: Memory tip optimized for TNPSC review
+      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
-  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
-  "summary": "Overall summary of the content",
-  "tnpscRelevance": "How this content is relevant for TNPSC exams",
+  "summary": "Overall summary of the content (Max 3 concise sentences)",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
@@ -134,11 +134,8 @@ Focus on:
 - TNPSC Group 1, 2, 4 exam relevance
 - Extracting specific facts, figures, names, dates, and definitions
 - Make key points factual and specific from the actual content
-- Provide creative memory tips using mnemonics, associations, or patterns
 
 MEMORY TIP GUIDELINES:
-- **Use acronyms, rhymes, visual imagery, or story-based associations.**
-- **Keep tips fun, quirky, and unforgettable.**
 - **CRITICAL: The tip must synthesize the point into a very short, memorable TNPSC-relevant summary (keywords, dates, articles).**
 `;
 
@@ -258,12 +255,20 @@ const processGeminiResponse = (data: any): AnalysisResult => {
     const result = JSON.parse(cleanedContent);
     
     // The previous transformation is no longer needed as we're back to the original complex structure
+    
+    // CRITICAL: Generate a simple keyPoints array from the studyPoints titles/descriptions for AnalysisResult compatibility
+    const generatedKeyPoints = (result.studyPoints || []).map((sp: any) => sp.title + (sp.description ? (": " + sp.description) : ""));
+    
     return {
-      keyPoints: result.keyPoints || [],
+      // Return studyPoints as the primary analysis data
+      studyPoints: result.studyPoints || [],
+      // Re-use generated summary/relevance fields
       summary: result.summary || '',
       tnpscRelevance: result.tnpscRelevance || '',
-      studyPoints: result.studyPoints || [],
-      tnpscCategories: result.tnpscCategories || []
+      tnpscCategories: result.tnpscCategories || [],
+      // Use the generated Key Points (titles/descriptions) for the separate keyPoints field
+      keyPoints: generatedKeyPoints, 
+      mainTopic: result.mainTopic || ''
     };
 };
 
@@ -582,8 +587,13 @@ export const generatePageAnalysis = async (
 ): Promise<{
   page: number;
   keyPoints: string[];
+  studyPoints: Array<{
+    title: string;
+    description: string;
+    importance: "high" | "medium" | "low";
+    memoryTip: string;
+  }>;
   summary: string;
-  importance: "high" | "medium" | "low";
   tnpscRelevance: string;
 }> => {
   try {
@@ -680,6 +690,7 @@ Focus on:
     return {
       page: pageNumber,
       keyPoints: analysis.keyPoints || [],
+      studyPoints: analysis.studyPoints || [],
       summary: analysis.summary || '',
       importance: analysis.importance || 'medium',
       tnpscRelevance: analysis.tnpscRelevance || ''
@@ -876,7 +887,7 @@ export const analyzePdfContent = async (
       : "Please provide all responses in English language.";
 
     const prompt = `
-Analyze this PDF text content for TNPSC (Tamil Nadu Public Service Commission) exam preparation.
+Analyze this PDF text content for TNPSC (Tamil Nadu Public Service Commission) exam preparation:
 
 ${languageInstruction}
 
