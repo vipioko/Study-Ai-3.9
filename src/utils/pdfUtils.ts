@@ -1,47 +1,52 @@
-// src/utils/pdfUtils.ts (New Content)
+// src/utils/pdfUtils.ts
 
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas'; // <<< YOU MUST INSTALL THIS: npm install html2canvas
 
-// --- NEW INTERFACE ---
-export interface ImageToPDFContent {
+// Helper to render React components to a hidden DOM element
+import ReactDOMServer from 'react-dom/server'; 
+import React from 'react';
+
+// NOTE: You will need to import the necessary components for rendering the PDF content.
+// Since I do not have access to your components, this will be a generic Renderer.
+// We must assume the caller (StudyHistory/AnalysisResults) provides data in the expected format.
+
+// --- INTERFACES (RETAINED FOR COMPATIBILITY) ---
+export interface PDFContent {
   title: string;
-  base64Image: string; // The base64 image data from html2canvas
+  content: any;
+  type: 'keypoints' | 'questions' | 'analysis' | 'quiz-results';
 }
+// --- END INTERFACES ---
 
-// NOTE: The previous downloadPDF function is replaced by this one.
-export const downloadImageAsPDF = async ({ title, base64Image }: ImageToPDFContent) => {
-  const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for units, 'a4' for size
-  const imgWidth = 210; // A4 width in mm
-  const pageHeight = 297; // A4 height in mm
+// ========================================================================
+// 1. CORE LOGIC: IMAGE-TO-PDF (Updated from previous step)
+// ========================================================================
+export const downloadImageAsPDF = async ({ title, base64Image }: { title: string, base64Image: string }) => {
+  const pdf = new jsPDF('p', 'mm', 'a4'); 
+  const imgWidth = 210; 
+  const pageHeight = 297; 
   
-  // Create a temporary image object to get actual dimensions
   const img = new Image();
   img.src = base64Image;
 
-  // Wait for image to load to get dimensions
   await new Promise(resolve => img.onload = resolve);
 
   const imgActualWidth = img.naturalWidth;
   const imgActualHeight = img.naturalHeight;
 
-  // Calculate scaling factor to fit the image to the PDF page width
   const ratio = imgWidth / imgActualWidth;
   const newHeight = imgActualHeight * ratio;
 
   let heightLeft = newHeight;
-  let position = 0; // Tracks the current vertical position on the image
+  let position = 0;
 
-  // Calculate how much height is needed for a full A4 page slice in image units
-  const imgSliceHeight = pageHeight / ratio;
-
-  // Handle multi-page PDF for long content
-  while (heightLeft > -1) { // Loop until we've covered the entire height
+  while (heightLeft > -1) {
     if (position > 0) {
       pdf.addPage();
     }
     
-    // Draw the image slice onto the PDF page
-    // Arguments: addImage(imageData, format, x, y, width, height, alias, compression, rotation)
+    // Add the image slice to the PDF
     pdf.addImage(
       base64Image, 
       'JPEG', 
@@ -52,7 +57,6 @@ export const downloadImageAsPDF = async ({ title, base64Image }: ImageToPDFConte
       undefined, 
       'FAST',
       0,
-      // Calculate the part of the image to show by offsetting the Y position
       {
         x: 0,
         y: position * ratio, // Offset in scaled mm for viewport
@@ -69,15 +73,103 @@ export const downloadImageAsPDF = async ({ title, base64Image }: ImageToPDFConte
   pdf.save(fileName);
 };
 
-// You need to export the original downloadPDF interface for compatibility with StudyHistory.tsx
-export interface PDFContent {
-    title: string;
-    content: any;
-    type: 'keypoints' | 'questions' | 'analysis' | 'quiz-results';
-}
 
-// Re-export as a stub for now, as it's not the function being used directly
-export const downloadPDF = async (content: PDFContent) => {
-    console.error("The old downloadPDF function is a stub. The component should use html2canvas + downloadImageAsPDF.");
-    throw new Error("Old PDF download method is deprecated. The component is misconfigured.");
+// ========================================================================
+// 2. COMPATIBILITY FIX: downloadPDF (The stub that was causing the error)
+//    This function now implements the full HTML-to-Image-to-PDF logic.
+// ========================================================================
+
+const PDFRenderer = ({ title, content, type }: PDFContent) => {
+    // --- THIS IS THE CRITICAL CONTENT RENDERER LOGIC ---
+    // This must match the logic in StudyHistory.tsx's RecordContentRenderer
+    // NOTE: This is a simplified mock. You MUST use your actual UI components
+    // and data transformation logic here for accurate rendering.
+    
+    // For now, we return a simple representation that will be readable.
+    
+    let displayContent = '';
+
+    if (type === 'analysis' && Array.isArray(content) && content[0]) {
+        const analysis = content[0];
+        displayContent = `
+            <h1>TNPSC Analysis: ${analysis.mainTopic || title}</h1>
+            <h2>Summary:</h2>
+            <p>${analysis.summary}</p>
+            <h2>Study Points:</h2>
+            <ul>
+                ${analysis.studyPoints?.map((p: any) => `<li><strong>${p.title}:</strong> ${p.description} (${p.memoryTip})</li>`).join('')}
+            </ul>
+        `;
+    } else if (type === 'quiz-results' && content && content.answers) {
+        displayContent = `
+            <h1>Quiz Results: ${content.score}/${content.totalQuestions}</h1>
+            <h2>Review:</h2>
+            ${content.answers.map((a: any, i: number) => `
+                <div style="color:${a.isCorrect ? 'green' : 'red'}; margin-bottom: 5px;">
+                    <strong>Q${i + 1}.</strong> ${a.question.question}
+                    <br><strong>Correct:</strong> ${a.correctAnswer} | Your Answer: ${a.userAnswer}
+                </div>
+            `).join('')}
+        `;
+    } else {
+        displayContent = `<h1>${title}</h1><p>Content type: ${type}. No display logic available.</p>`;
+    }
+    
+    // CRITICAL STYLE: Ensure a Tamil-capable font is set for the DOM element
+    return (
+        <div 
+            id="pdf-content-to-capture" 
+            style={{ 
+                fontFamily: 'Noto Sans Tamil, Arial, sans-serif', // Use a standard OS Tamil font
+                fontSize: '12pt',
+                lineHeight: '1.5',
+                width: '800px',
+                padding: '2rem',
+                backgroundColor: 'white',
+            }} 
+            dangerouslySetInnerHTML={{ __html: displayContent }}
+        />
+    );
 };
+
+
+export const downloadPDF = async ({ title, content, type }: PDFContent) => {
+    
+    // 1. Render the React component to a temporary DOM element
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.top = '-9999px';
+    document.body.appendChild(container);
+
+    // Render the React content into the container
+    ReactDOM.render(<PDFRenderer title={title} content={content} type={type} />, container);
+
+    // Wait for the DOM to update (necessary for html2canvas)
+    await new Promise(resolve => setTimeout(resolve, 50)); 
+
+    try {
+        // 2. Use html2canvas to capture the element
+        const canvas = await html2canvas(container, {
+            scale: 2, 
+            useCORS: true,
+            windowWidth: container.scrollWidth,
+            windowHeight: container.scrollHeight,
+        });
+
+        const base64Image = canvas.toDataURL('image/jpeg', 1.0);
+        
+        // 3. Convert the image to a multi-page PDF
+        await downloadImageAsPDF({ title, base64Image });
+
+    } catch (error) {
+        console.error("Error in compatibility downloadPDF:", error);
+        throw new Error(`PDF generation failed: ${(error as Error).message}.`);
+    } finally {
+        // 4. Clean up the temporary DOM element
+        document.body.removeChild(container);
+    }
+};
+
+// NOTE: You must also install 'html2canvas' and 'react-dom' if not already installed.
+// npm install html2canvas
+// npm install react-dom // (if you are not using a framework that provides it)
