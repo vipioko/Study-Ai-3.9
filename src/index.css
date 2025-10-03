@@ -4,7 +4,7 @@
 
 /* 
 ================================================================================
-  Enhanced Design System for Rich & Elegant UI
+  Enhanced Design System for Rich & Elegant UI (Version 2.0)
 ================================================================================
 */
 
@@ -16,10 +16,11 @@
 @layer base {
   /* Smooth transitions for all elements */
   * {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Slightly faster transition for snappier feel */
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  /* Enhanced keyframe animations */
+  /* Enhanced keyframe animations (Keeping existing elegant definitions) */
   @keyframes fadeInUp {
     from {
       opacity: 0;
@@ -42,6 +43,7 @@
     }
   }
   
+  /* ... (other keyframe definitions are kept as they are elegant) ... */
   @keyframes slideInFromLeft {
     from {
       opacity: 0;
@@ -117,6 +119,15 @@
       box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
     }
   }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 30px hsl(var(--primary) / 0.8);
+    }
+  }
 }
 
 /* 
@@ -127,21 +138,22 @@
 @layer base {
   :root {
     /* Study-focused color palette - Calming blues and purples for concentration */
-    --background: 245 100% 99%;
-    --foreground: 218 25% 15%;
-    --card: 250 100% 99%;
+    /* Light Mode: Brighter and airy */
+    --background: 245 100% 99%; /* Near white */
+    --foreground: 218 25% 15%; /* Deep gray/blue */
+    --card: 250 100% 100%; /* Pure White Card */
     --card-foreground: 218 25% 15%;
-    --popover: 250 100% 99%;
+    --popover: 250 100% 100%;
     --popover-foreground: 218 25% 15%;
     
     /* Primary - Focus blue for study materials */
-    --primary: 214 85% 58%;
+    --primary: 214 85% 58%; /* Vibrant Blue */
     --primary-foreground: 255 100% 99%;
     --primary-hover: 214 85% 52%;
     --primary-glow: 214 85% 70%;
     
     /* Secondary - Soft purple for learning */
-    --secondary: 266 65% 95%;
+    --secondary: 266 65% 95%; 
     --secondary-foreground: 266 65% 25%;
     --secondary-hover: 266 65% 88%;
     
@@ -165,6 +177,8 @@
     --input: 235 20% 95%;
     --ring: 214 85% 58%;
     --radius: 1rem;
+    
+    /* Sidebar variables are kept but should ideally be derived from main palette */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -177,26 +191,26 @@
 
   .dark {
     /* Dark mode study palette - Easier on eyes for night study */
-    --background: 220 25% 8%;
-    --foreground: 215 20% 88%;
-    --card: 220 25% 10%;
+    --background: 220 25% 8%; /* Deep Dark Blue */
+    --foreground: 215 20% 88%; /* Off-White Text */
+    --card: 220 25% 12%; /* Slightly lighter card for contrast */
     --card-foreground: 215 20% 88%;
-    --popover: 220 25% 10%;
+    --popover: 220 25% 12%;
     --popover-foreground: 215 20% 88%;
     
     /* Primary - Softer blue for dark mode */
-    --primary: 214 75% 65%;
+    --primary: 214 75% 65%; 
     --primary-foreground: 220 25% 8%;
     --primary-hover: 214 75% 58%;
     --primary-glow: 214 75% 72%;
     
     /* Secondary - Muted purple */
-    --secondary: 220 25% 15%;
+    --secondary: 220 25% 18%; /* Darker secondary for subtle contrast */
     --secondary-foreground: 215 20% 85%;
-    --secondary-hover: 220 25% 20%;
+    --secondary-hover: 220 25% 25%;
     
     /* Muted colors for dark readability */
-    --muted: 220 25% 12%;
+    --muted: 220 25% 15%;
     --muted-foreground: 215 15% 65%;
     
     /* Accent - Soft green for dark mode */
@@ -212,6 +226,8 @@
     --border: 220 25% 18%;
     --input: 220 25% 15%;
     --ring: 214 75% 65%;
+    
+    /* Sidebar variables are kept */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -242,39 +258,49 @@
 
   html {
     scroll-behavior: smooth;
+    /* Ensure the background covers the whole scrollable area elegantly */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
-  /* Beautiful scrollbar */
+  /* Beautiful scrollbar (Improved hover effect and track color) */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
   
   ::-webkit-scrollbar-track {
-    background: rgb(0 0 0 / 0.03);
+    background: hsl(var(--border)); /* Use a theme color for the track */
     border-radius: 10px;
   }
   
   ::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Use primary colors for thumb for better theme integration */
+    background: linear-gradient(135deg, hsl(var(--primary-hover)) 0%, hsl(var(--primary)) 100%);
     border-radius: 10px;
     transition: all 0.3s ease;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-    transform: scale(1.1);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 100%);
+    transform: scale(1.05); /* Subtle scale on hover */
   }
 
   /* Typography improvements */
   h1, h2, h3, h4, h5, h6 {
-    @apply font-bold tracking-tight;
-    line-height: 1.3;
+    @apply font-extrabold tracking-tight text-foreground; /* Use extrabold for h1/h2 for elegance */
+    line-height: 1.25; /* Slightly tighter line-height for headings */
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
   }
+  h1 { font-size: 2.5rem; }
+  h2 { font-size: 2rem; }
+  h3 { font-size: 1.5rem; }
 
   p {
-    line-height: 1.7;
+    line-height: 1.75; /* Slightly increased line-height for better body readability */
     color: hsl(var(--muted-foreground));
+    margin-bottom: 1em;
   }
 }
 
@@ -284,15 +310,21 @@
 --------------------------------------------------------------------------------
 */
 @layer components {
-  /* Premium Glass Card System - Enhanced for Mobile */
+  /* Premium Glass Card System - Theme-aware and Enhanced */
   .glass-card {
-    @apply backdrop-blur-2xl shadow-2xl relative overflow-hidden;
+    @apply backdrop-blur-elegant shadow-elegant-lg relative overflow-hidden;
     
-    /* Enhanced mobile-friendly background */
-    background: linear-gradient(135deg, rgb(255 255 255 / 0.98) 0%, rgb(255 255 255 / 0.92) 100%);
-    border: 1px solid rgb(255 255 255 / 0.4);
-    border-radius: 20px;
+    /* Light Mode Background */
+    background: linear-gradient(135deg, hsl(var(--card) / 0.98) 0%, hsl(var(--card) / 0.92) 100%);
+    border: 1px solid hsl(var(--border) / 0.4);
+    border-radius: var(--radius); /* Use theme radius */
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Dark Mode Glass Card Overrides */
+  .dark .glass-card {
+    background: linear-gradient(135deg, hsl(var(--card) / 0.9) 0%, hsl(var(--background) / 0.8) 100%);
+    border: 1px solid hsl(var(--border) / 0.4);
   }
   
   .glass-card::before {
@@ -302,8 +334,12 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.1), transparent);
     z-index: 1;
+  }
+
+  .dark .glass-card::before {
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.05), transparent);
   }
   
   .glass-card::after {
@@ -313,28 +349,19 @@
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--card) / 0.2), transparent);
     transition: left 0.6s;
     z-index: 1;
   }
   
   .glass-card:hover {
-    transform: translateY(-8px) scale(1.02);
-    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-    background: linear-gradient(135deg, rgb(255 255 255 / 1) 0%, rgb(255 255 255 / 0.95) 100%);
-    border-color: rgb(59 130 246 / 0.3);
+    transform: translateY(-8px) scale(1.01); /* Reduced scale for elegance */
+    box-shadow: 0 30px 60px -12px hsl(var(--foreground) / 0.2);
+    border-color: hsl(var(--ring) / 0.5);
   }
   
   .glass-card:hover::after {
     left: 100%;
-  }
-  
-  /* Mobile optimized hover effects */
-  @media (max-width: 768px) {
-    .glass-card:hover {
-      transform: translateY(-4px) scale(1.01);
-      box-shadow: 0 15px 30px -8px rgb(0 0 0 / 0.2);
-    }
   }
 
   /* Premium Button System - Study focused */
@@ -348,6 +375,7 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: none;
     position: relative;
+    letter-spacing: 0.02em;
   }
   
   .btn-primary::before {
@@ -357,14 +385,16 @@
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.4), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--primary-foreground) / 0.4), transparent);
     transition: left 0.5s;
+    z-index: 1;
   }
   
   .btn-primary:hover {
-    transform: translateY(-3px) scale(1.05);
+    transform: translateY(-4px) scale(1.02); /* Slightly less aggressive hover */
     box-shadow: 0 20px 60px hsl(var(--primary) / 0.6);
     background-position: 100% 0;
+    z-index: 2; /* Ensure hover is on top */
   }
   
   .btn-primary:hover::before {
@@ -372,36 +402,43 @@
   }
   
   .btn-primary:active {
-    transform: translateY(-1px) scale(1.02);
+    transform: translateY(-1px) scale(1.01);
   }
 
   .btn-secondary {
-    /* IMPROVED: Using theme variables for colors makes this button adapt to dark mode. */
+    /* Theme-aware secondary button */
     @apply relative overflow-hidden font-semibold text-secondary-foreground bg-secondary shadow-md;
     @apply border-2 border-border backdrop-blur-sm;
     border-radius: 20px;
     padding: 16px 32px;
-    box-shadow: 0 6px 20px rgb(0 0 0 / 0.1);
+    box-shadow: 0 6px 20px hsl(var(--foreground) / 0.1);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 44px; /* Mobile touch target */
   }
   
   .btn-secondary:hover {
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 15px 40px rgb(0 0 0 / 0.2);
-    /* NOTE: These colors are custom. Consider adding them to your theme for full consistency. */
-    border-color: #3b82f6;
-    color: #3b82f6;
-    background: rgb(255 255 255 / 0.9);
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 15px 40px hsl(var(--foreground) / 0.15);
+    /* Theme-aware hover colors */
+    border-color: hsl(var(--primary));
+    color: hsl(var(--primary));
+    background: hsl(var(--background) / 0.95);
+  }
+  .dark .btn-secondary:hover {
+    border-color: hsl(var(--primary-glow));
+    color: hsl(var(--primary-glow));
+    background: hsl(var(--card) / 0.95);
   }
 
   /* Enhanced Input System */
   .input-elegant {
-    /* FIXED: Using arbitrary value syntax `[...]` for custom opacity values to prevent build errors. */
-    /* IMPROVED: Using `border-border` from your theme instead of hardcoded `border-gray-200`. */
-    @apply w-full px-6 py-4 bg-card/[0.95] border-2 border-border rounded-2xl;
-    @apply focus:border-blue-500 focus:ring-4 focus:ring-blue-500/[0.20] focus:outline-none;
+    @apply w-full px-6 py-4 border-2 rounded-2xl;
+    /* Use card background for light/dark theme adaptation */
+    background: hsl(var(--card) / 0.9);
+    border-color: hsl(var(--border));
+    @apply focus:border-primary focus:ring-4 focus:ring-primary/[0.20] focus:outline-none;
     @apply transition-all duration-300 ease-in-out;
-    @apply shadow-md hover:shadow-xl;
+    @apply shadow-elegant hover:shadow-elegant-lg;
     font-size: 16px;
     backdrop-filter: blur(12px);
     position: relative;
@@ -409,12 +446,12 @@
   }
 
   .input-elegant:focus {
-    transform: translateY(-3px);
-    box-shadow: 0 15px 40px rgb(59 130 246 / 0.25);
+    transform: translateY(-2px); /* Subtle lift on focus */
+    box-shadow: 0 10px 30px hsl(var(--primary) / 0.3);
     z-index: 10;
   }
 
-  /* Fix for select dropdowns */
+  /* Fix for select dropdowns (colors kept the same as they use gray-scale) */
   select.input-elegant {
     appearance: none;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
@@ -426,11 +463,7 @@
   }
 
   /* Ensure dropdowns appear above other elements */
-  [data-radix-select-content] {
-    z-index: 100 !important;
-  }
-
-  [data-radix-popper-content-wrapper] {
+  [data-radix-select-content], [data-radix-popper-content-wrapper] {
     z-index: 100 !important;
   }
 
@@ -438,16 +471,17 @@
   .progress-elegant {
     @apply h-5 rounded-full overflow-hidden relative;
     background: linear-gradient(90deg, hsl(var(--secondary)) 0%, hsl(var(--muted)) 100%);
-    box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.15);
+    box-shadow: inset 0 2px 6px hsl(var(--foreground) / 0.15);
   }
   
   .progress-elegant .progress-fill {
     @apply h-full rounded-full;
-    background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
+    /* Theme-aware gradient */
+    background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 50%, hsl(var(--accent-success)) 100%);
     background-size: 200% 200%;
     animation: progress-shimmer 3s ease-in-out infinite;
     transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 0 25px rgb(59 130 246 / 0.6);
+    box-shadow: 0 0 25px hsl(var(--primary) / 0.6);
     position: relative;
   }
   
@@ -458,7 +492,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--primary-foreground) / 0.3), transparent);
     animation: shimmer 2s infinite;
   }
 
@@ -469,241 +503,41 @@
 
   /* Premium Badge System */
   .badge-elegant {
-    /* FIXED: Completed the `backdrop-filter` property with a value. */
     @apply px-4 py-2 rounded-full text-sm font-semibold relative overflow-hidden;
-    @apply shadow-lg border-2 transition-all duration-300;
+    @apply shadow-elegant border-2 border-border transition-all duration-300;
     backdrop-filter: blur(10px);
   }
   
   .badge-elegant:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 25px rgb(0 0 0 / 0.15);
+    transform: scale(1.03);
+    box-shadow: 0 8px 25px hsl(var(--foreground) / 0.15);
   }
   
   /* Animation Classes */
-  .animate-fadeInUp {
-    animation: fadeInUp 0.6s ease-out forwards;
-  }
-  
-  .animate-fadeInScale {
-    animation: fadeInScale 0.5s ease-out forwards;
-  }
-  
-  .animate-slideInLeft {
-    animation: slideInFromLeft 0.6s ease-out forwards;
-  }
-  
-  .animate-slideInRight {
-    animation: slideInFromRight 0.6s ease-out forwards;
-  }
-  
-  .animate-bounceIn {
-    animation: bounceIn 0.8s ease-out forwards;
-  }
-  
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-  
-  .animate-glow {
-    animation: glow 2s ease-in-out infinite;
-  }
-  
-  /* Enhanced Mobile-First Responsive Design */
-  @media (max-width: 768px) {
-    .glass-card {
-      padding: 0.75rem;
-      border-radius: 16px;
-      margin: 0.25rem;
-    }
-    
-    .btn-primary, .btn-secondary {
-      padding: 10px 16px;
-      font-size: 14px;
-      border-radius: 12px;
-      min-height: 44px;
-    }
-    
-    .gradient-text {
-      font-size: clamp(1.25rem, 5vw, 2.5rem);
-      line-height: 1.2;
-    }
-    
-    .hover-lift:hover {
-      transform: translateY(-2px) scale(1.01);
-    }
-    
-    /* Mobile navigation improvements */
-    .input-elegant {
-      padding: 12px 14px;
-      font-size: 16px; /* Prevents zoom on iOS */
-      border-radius: 12px;
-    }
-    
-    /* Better touch targets */
-    .btn-primary, .btn-secondary, button {
-      min-height: 44px;
-      min-width: 44px;
-    }
-    
-    /* Mobile-specific card adjustments */
-    .interactive-card {
-      padding: 1.5rem 1rem;
-      min-height: 120px;
-      border-radius: 16px;
-    }
-    
-    /* Mobile timer display */
-    .timer-display {
-      font-size: clamp(2rem, 12vw, 4rem);
-      line-height: 1;
-    }
-    
-    /* Mobile session cards */
-    .session-card {
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
-    
-    /* Mobile button groups */
-    .button-group {
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-    
-    .button-group button {
-      width: 100%;
-      justify-content: center;
-    }
-  }
-  
-  /* Tablet optimizations */
-  @media (min-width: 769px) and (max-width: 1024px) {
-    .glass-card {
-      padding: 1.5rem;
-    }
-    
-    .btn-primary, .btn-secondary {
-      padding: 14px 24px;
-      font-size: 15px;
-    }
-  }
-  
-  /* Small mobile devices */
-  @media (max-width: 480px) {
-    .glass-card {
-      padding: 0.5rem;
-      margin: 0.125rem;
-      border-radius: 12px;
-    }
-    
-    .gradient-text {
-      font-size: clamp(1rem, 8vw, 2rem);
-    }
-    
-    .interactive-card {
-      padding: 1rem 0.75rem;
-      min-height: 100px;
-    }
-    
-    .btn-primary, .btn-secondary {
-      padding: 8px 12px;
-      font-size: 13px;
-      border-radius: 10px;
-    }
-  }
-  
-  /* Gradient text enhancement */
-  .gradient-text {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, #8b5cf6 50%, #06b6d4 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-  }
-  
-  /* Enhanced animations for better UX */
-  .hover-lift {
+  .animate-fadeInUp { animation: fadeInUp 0.6s ease-out forwards; }
+  .animate-fadeInScale { animation: fadeInScale 0.5s ease-out forwards; }
+  .animate-slideInLeft { animation: slideInFromLeft 0.6s ease-out forwards; }
+  .animate-slideInRight { animation: slideInFromRight 0.6s ease-out forwards; }
+  .animate-bounceIn { animation: bounceIn 0.8s ease-out forwards; }
+  .animate-float { animation: float 3s ease-in-out infinite; }
+  .animate-glow { animation: glow 2s ease-in-out infinite; }
+  .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+  /* Interactive Elements */
+  .interactive-card {
+    @apply glass-card cursor-pointer select-none;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  .hover-lift:hover {
-    transform: translateY(-6px) scale(1.02);
-    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+  .interactive-card:hover {
+    transform: translateY(-8px) scale(1.01);
+    box-shadow: 0 30px 60px -12px hsl(var(--foreground) / 0.25);
   }
   
-  /* Pulse glow effect */
-  .pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
+  .interactive-card:active {
+    transform: translateY(-4px) scale(1.0);
+    box-shadow: 0 15px 30px -8px hsl(var(--foreground) / 0.15);
   }
-  
-  @keyframes pulse-glow {
-    0%, 100% {
-      box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 30px rgba(59, 130, 246, 0.8);
-    }
-  }
-  
-  /* Stagger animation for lists */
-  .stagger-animation > * {
-    animation: fadeInUp 0.6s ease-out forwards;
-  }
-  
-  .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
-  .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
-  .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
-  .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
-  .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
-  }
-  
-  /* Enhanced Mobile Touch */
-  @media (max-width: 768px) {
-    .interactive-card {
-      padding: 2rem;
-      min-height: 150px;
-    }
-    
-    .btn-primary {
-      min-height: 56px;
-      font-size: 18px;
-    }
-  }
-  
-  /* Utility Classes */
-  .hover-lift {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .hover-lift:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 25px 50px -12px hsl(var(--foreground) / 0.1);
-  }
-  
-  .pulse-glow {
-    animation: glow 2s ease-in-out infinite;
-  }
-  
-  .gradient-text {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 50%, hsl(var(--accent-success)) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
-  .stagger-animation > * {
-    opacity: 0;
-    animation: fadeInUp 0.6s ease-out forwards;
-  }
-  
-  .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
-  .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
-  .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
-  .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
-  .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
-  .stagger-animation > *:nth-child(6) { animation-delay: 0.6s; }
   
   /* Enhanced Card Variants */
   .card-premium {
@@ -724,21 +558,39 @@
     z-index: -1;
   }
   
-  /* Interactive Elements */
-  .interactive-card {
-    @apply glass-card cursor-pointer select-none;
+  /* Gradient text enhancement */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 50%, hsl(var(--accent-success)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  
+  /* Enhanced animations for better UX */
+  .hover-lift {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  .interactive-card:hover {
-    transform: translateY(-10px) scale(1.02);
-    box-shadow: 0 30px 60px -12px rgb(0 0 0 / 0.3);
+  .hover-lift:hover {
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 20px 40px -12px hsl(var(--foreground) / 0.15);
   }
   
-  .interactive-card:active {
-    transform: translateY(-5px) scale(1.01);
+  /* Stagger animation for lists (Consolidated) */
+  .stagger-animation > * {
+    opacity: 0;
+    animation: fadeInUp 0.6s ease-out forwards;
   }
   
+  .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
+  .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
+  .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
+  .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
+  .stagger-animation > *:nth-child(5) { animation-delay: 0.5s; }
+  .stagger-animation > *:nth-child(6) { animation-delay: 0.6s; }
+
   /* Status Indicators */
   .status-success {
     @apply bg-gradient-to-r from-green-500 to-emerald-600 text-white;
@@ -758,18 +610,19 @@
   
   /* Loading States */
   .loading-shimmer {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    /* Using theme colors for a softer look */
+    background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--border)) 50%, hsl(var(--muted)) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
   }
   
-  /* Enhanced Shadows */
+  /* Enhanced Shadows (Consolidated) */
   .shadow-elegant {
-    box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+    box-shadow: 0 10px 25px -5px hsl(var(--foreground) / 0.08), 0 5px 5px -3px hsl(var(--foreground) / 0.02);
   }
   
   .shadow-elegant-lg {
-    box-shadow: 0 20px 40px -10px rgb(0 0 0 / 0.15), 0 10px 20px -5px rgb(0 0 0 / 0.1);
+    box-shadow: 0 25px 50px -12px hsl(var(--foreground) / 0.18), 0 12px 12px -6px hsl(var(--foreground) / 0.08);
   }
   
   /* Backdrop Effects */
@@ -779,51 +632,85 @@
 
   /* Chat UI - Reusable Bubbles and Input Bar */
   .chat-bubble-user {
-    @apply rounded-2xl text-primary-foreground shadow-lg;
+    @apply rounded-xl rounded-br-none text-primary-foreground shadow-elegant; /* Tighter border radius */
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 60%, hsl(var(--accent-success)) 100%);
-    border: 1px solid hsl(var(--ring) / 0.25);
+    border: 1px solid hsl(var(--ring) / 0.2);
   }
 
   .chat-bubble-ai {
-    @apply rounded-2xl text-foreground shadow-lg;
+    @apply rounded-xl rounded-tl-none text-foreground shadow-elegant; /* Tighter border radius */
     background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
     border: 1px solid hsl(var(--border));
   }
+  .dark .chat-bubble-ai {
+    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
+  }
+
 
   .chat-timestamp {
     @apply text-xs text-muted-foreground mt-1 px-1;
   }
 
-  /* Chat UI - spacing and touch target refinements */
-  .chat-input-bar { padding: 8px; gap: 8px; }
-  .chat-text-input { padding: 10px 12px; }
-  .chat-action-btn { width: 44px; height: 44px; }
+  /* Chat UI - spacing and touch target refinements (Mobile Optimized) */
+  .chat-input-bar { 
+    @apply flex items-center w-full;
+    padding: 8px; 
+    gap: 8px; 
+  }
+  .chat-text-input { 
+    @apply flex-grow;
+    padding: 10px 12px; 
+  }
+  .chat-action-btn { 
+    @apply rounded-xl flex-shrink-0;
+    width: 44px; 
+    height: 44px; 
+  }
   @media (min-width: 768px) {
     .chat-input-bar { padding: 10px 12px; gap: 12px; }
     .chat-text-input { padding: 12px 16px; }
-    .chat-action-btn { width: 40px; height: 40px; }
+    .chat-action-btn { width: 48px; height: 48px; border-radius: 14px; } /* Slightly larger touch target on desktop */
   }
 
   /* App premium background with soft grid + gradient */
   .app-hero-bg {
     position: relative;
     min-height: 100vh;
-    background: radial-gradient(1200px 600px at 100% -10%, hsl(var(--primary) / 0.12), transparent 60%),
-                radial-gradient(1000px 500px at -10% 110%, hsl(var(--accent-success) / 0.10), transparent 60%),
-                linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)) 60%);
+    /* Richer gradients with a central focus */
+    background: 
+      radial-gradient(1200px 600px at 100% -10%, hsl(var(--primary) / 0.15), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, hsl(var(--accent-success) / 0.12), transparent 60%),
+      radial-gradient(800px 400px at 50% 50%, hsl(var(--secondary) / 0.08), transparent 80%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)) 60%);
     overflow: hidden;
   }
+  /* Dark mode background adjustment */
+  .dark .app-hero-bg {
+     background: 
+      radial-gradient(1200px 600px at 100% -10%, hsl(var(--primary) / 0.15), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, hsl(var(--accent-success) / 0.12), transparent 60%),
+      radial-gradient(800px 400px at 50% 50%, hsl(var(--secondary) / 0.05), transparent 80%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)) 60%);
+  }
+
+  /* Soft grid pattern */
   .app-hero-bg::before {
     content: '';
     position: absolute;
     inset: 0;
     background:
-      linear-gradient(transparent, transparent 31px, hsl(var(--border)) 32px),
-      linear-gradient(90deg, transparent, transparent 31px, hsl(var(--border)) 32px);
+      linear-gradient(transparent, transparent 31px, hsl(var(--border) / 0.6) 32px),
+      linear-gradient(90deg, transparent, transparent 31px, hsl(var(--border) / 0.6) 32px);
     background-size: 32px 32px;
     mask-image: radial-gradient(800px 400px at 50% -10%, black, transparent 70%);
-    opacity: 0.35;
+    opacity: 0.3;
     pointer-events: none;
+  }
+  /* Dark mode grid pattern */
+  .dark .app-hero-bg::before {
+     background:
+      linear-gradient(transparent, transparent 31px, hsl(var(--border) / 0.3) 32px),
+      linear-gradient(90deg, transparent, transparent 31px, hsl(var(--border) / 0.3) 32px);
   }
 
   /* Elevated card with subtle border and glow */
@@ -831,36 +718,146 @@
     @apply relative overflow-hidden rounded-2xl;
     background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
     border: 1px solid hsl(var(--border));
-    box-shadow: 0 10px 30px hsl(var(--foreground) / 0.07);
+    box-shadow: 0 15px 40px hsl(var(--foreground) / 0.08); /* Stronger but elegant shadow */
+  }
+  .dark .elevated-card {
+    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
+    box-shadow: 0 15px 40px hsl(var(--foreground) / 0.05);
   }
   .elevated-card::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(600px 200px at 10% -20%, hsl(var(--primary) / 0.10), transparent 60%);
+    background: radial-gradient(600px 200px at 10% -20%, hsl(var(--primary) / 0.15), transparent 60%);
     pointer-events: none;
   }
 
-  /* AI prose (markdown-like) for model responses */
+  /* AI prose (markdown-like) for model responses - Enhanced spacing and readability */
   .ai-prose {
     color: hsl(var(--foreground));
   }
-  .ai-prose p { margin: 0.25rem 0 0.5rem; line-height: 1.7; }
-  .ai-prose strong { font-weight: 700; }
-  .ai-prose code { background: hsl(var(--muted)); padding: 0.125rem 0.375rem; border-radius: 0.375rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .ai-prose ul { padding-left: 1rem; list-style: disc; margin: 0.25rem 0 0.5rem; }
-  .ai-prose ol { padding-left: 1rem; list-style: decimal; margin: 0.25rem 0 0.5rem; }
-  .ai-prose a { color: hsl(var(--primary)); text-decoration: underline; }
+  .ai-prose p { margin: 0.5rem 0 1rem; line-height: 1.8; }
+  .ai-prose strong { font-weight: 700; color: hsl(var(--primary)); }
+  .ai-prose code { 
+    background: hsl(var(--muted)); 
+    padding: 0.125rem 0.375rem; 
+    border-radius: 0.375rem; 
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+  }
+  .ai-prose ul, .ai-prose ol { 
+    padding-left: 1.5rem; /* Increased padding */
+    margin: 0.5rem 0 1rem; 
+  }
+  .ai-prose ul { list-style: disc; }
+  .ai-prose ol { list-style: decimal; }
+  .ai-prose li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+  }
+  .ai-prose a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 4px; }
 
   /* Soft divider */
   .soft-divider { border-top: 1px solid hsl(var(--border)); }
 
-  /* Theme toggle button */
+  /* Theme toggle button (Refined hover) */
   .theme-toggle {
     @apply inline-flex items-center justify-center rounded-xl border;
     background: hsl(var(--secondary));
     color: hsl(var(--foreground));
     border-color: hsl(var(--border));
-    width: 40px; height: 40px;
+    width: 44px; height: 44px; /* Increased to 44px for better mobile touch target */
   }
-  .theme-toggle:hover { background: hsl(var(--background)); }
+  .theme-toggle:hover { 
+    background: hsl(var(--secondary-hover));
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary));
+    transform: scale(1.05);
+  }
+
+  /* 
+--------------------------------------------------------------------------------
+  [Layer: components] - Responsive Optimizations (Consolidated)
+--------------------------------------------------------------------------------
+*/
+  /* Mobile optimized hover effects for glass card (Kept) */
+  @media (max-width: 768px) {
+    .glass-card:hover {
+      transform: translateY(-4px) scale(1.0); /* Removed scale up to prevent mobile layout issues */
+      box-shadow: 0 15px 30px -8px hsl(var(--foreground) / 0.2);
+    }
+    
+    .glass-card {
+      padding: 0.75rem;
+      border-radius: 16px;
+      margin: 0.25rem;
+    }
+    
+    .btn-primary, .btn-secondary {
+      padding: 12px 20px; /* Increased padding for touch target */
+      font-size: 15px;
+      border-radius: 12px;
+      min-height: 48px; /* Standard 48px touch target */
+    }
+    
+    .gradient-text {
+      font-size: clamp(1.5rem, 6vw, 2.5rem); /* Slightly larger text on mobile */
+      line-height: 1.2;
+    }
+    
+    .hover-lift:hover {
+      transform: translateY(-2px) scale(1.01);
+    }
+    
+    /* Mobile navigation improvements */
+    .input-elegant {
+      padding: 14px 16px; /* Larger padding for mobile input */
+      font-size: 16px; 
+      border-radius: 16px;
+    }
+    
+    /* Better touch targets (Consolidated) */
+    .btn-primary, .btn-secondary, button {
+      min-height: 48px;
+      min-width: 48px;
+    }
+    
+    .interactive-card {
+      padding: 1.5rem 1rem;
+      min-height: 120px;
+      border-radius: 16px;
+    }
+    
+    /* Small mobile devices */
+    @media (max-width: 480px) {
+      .glass-card {
+        padding: 0.75rem;
+        margin: 0.125rem;
+        border-radius: 14px;
+      }
+      
+      .gradient-text {
+        font-size: clamp(1.2rem, 8vw, 2rem);
+      }
+      
+      .btn-primary, .btn-secondary {
+        padding: 10px 16px;
+        font-size: 14px;
+        border-radius: 10px;
+        min-height: 44px;
+      }
+    }
+  }
+  
+  /* Tablet optimizations (Kept) */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .glass-card {
+      padding: 1.5rem;
+    }
+    
+    .btn-primary, .btn-secondary {
+      padding: 14px 24px;
+      font-size: 15px;
+    }
+  }
+}
