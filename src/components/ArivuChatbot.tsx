@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Paperclip, Image, MessageCircle, Brain, User, Languages } from "lucide-react";
+import { Send, Paperclip, Image, MessageCircle, Brain, User, Languages, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/config/firebase";
@@ -32,10 +32,15 @@ const ArivuChatbot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [language, setLanguage] = useState<"english" | "tamil">("english");
+  const [isDark, setIsDark] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+  }, [isDark]);
 
   useEffect(() => {
     if (language === "tamil") {
@@ -302,7 +307,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
+    <div className="app-hero-bg relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-green-400/20 to-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
@@ -314,7 +319,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
       <div className="container mx-auto px-4 py-6 relative z-10">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <Card className="glass-card p-4 md:p-6 mb-6 animate-fadeInUp">
+          <Card className="elevated-card p-4 md:p-6 mb-6 animate-fadeInUp">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-gradient-to-r from-green-500 to-blue-600 rounded-full shadow-lg">
@@ -329,6 +334,14 @@ Remember: Be proactive in connecting current questions to the user's study histo
               </div>
               
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsDark(v => !v)}
+                  className="theme-toggle"
+                  aria-label="Toggle theme"
+                  title="Toggle theme"
+                >
+                  {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </button>
                 <div className="p-2 bg-gradient-to-r from-orange-400 to-red-500 rounded-lg shadow-md">
                   <Languages className="h-4 w-4 text-white" />
                 </div>
@@ -345,7 +358,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
           </Card>
 
           {/* Chat Area */}
-          <Card className="glass-card animate-fadeInUp" style={{animationDelay: '0.2s'}}>
+          <Card className="elevated-card animate-fadeInUp" style={{animationDelay: '0.2s'}}>
             <ScrollArea className="h-[500px] p-4" ref={scrollAreaRef}>
               <div className="space-y-4">
                 {messages.map((message, index) => (
@@ -364,7 +377,9 @@ Remember: Be proactive in connecting current questions to the user's study histo
                       <div
                         className={`p-3 backdrop-blur-sm ${message.sender === 'user' ? 'chat-bubble-user ml-auto' : 'chat-bubble-ai'}`}
                       >
-                        <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                        <div className={`${message.sender === 'arivu' ? 'ai-prose' : ''}`}>
+                          <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                        </div>
                         
                         {message.attachments && message.attachments.length > 0 && (
                           <div className="mt-2 space-y-1">
@@ -408,7 +423,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
 
             {/* File Attachments */}
             {selectedFiles.length > 0 && (
-              <div className="border-t border-gray-200/50 p-4 bg-gradient-to-r from-purple-50/50 to-blue-50/50">
+              <div className="soft-divider p-4 bg-gradient-to-r from-purple-50/50 to-blue-50/50">
                 <div className="flex flex-wrap gap-2">
                   {selectedFiles.map((file, index) => (
                     <div key={index} className="flex items-center gap-2 glass-card px-3 py-2 animate-fadeInUp" style={{animationDelay: `${index * 0.1}s`}}>
@@ -437,7 +452,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
             )}
 
             {/* Input Area */}
-            <div className="border-t border-gray-200/50 p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 backdrop-blur-sm">
+            <div className="soft-divider p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 backdrop-blur-sm">
               <div className="chat-input-bar">
                 <input
                   type="file"
