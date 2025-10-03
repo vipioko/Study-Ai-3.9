@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +40,20 @@ const ArivuChatbot = () => {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
+  
+  // Auto-scroll to bottom of chat
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+        // Use a slight delay to ensure the scroll happens after the new message/loading state is rendered
+        const timer = setTimeout(() => {
+            const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+            if (scrollElement) {
+                scrollElement.scrollTop = scrollElement.scrollHeight;
+            }
+        }, 100); 
+        return () => clearTimeout(timer);
+    }
+  }, [messages, isLoading]);
 
   useEffect(() => {
     if (language === "tamil") {
@@ -138,7 +151,8 @@ const ArivuChatbot = () => {
       toast.error("Only image files and PDF files are supported");
     }
     
-    setSelectedFiles(prev => [...prev, ...validFiles]);
+    // Limit to 4 files for prompt context
+    setSelectedFiles(prev => [...prev, ...validFiles].slice(0, 4)); 
   };
 
   const removeFile = (index: number) => {
@@ -180,7 +194,7 @@ const ArivuChatbot = () => {
         ? "Please respond in Tamil language using Tamil script."
         : "Please respond in English language.";
 
-      // Enhanced context-aware prompt
+      // Enhanced context-aware prompt (omitted for brevity, assume the original logic is here)
       let prompt = `You are 'Arivu', an intelligent AI study companion with deep knowledge of the user's learning journey. You can help with:
 
 1. TNPSC (Tamil Nadu Public Service Commission) exam preparation - your primary expertise
@@ -308,84 +322,90 @@ Remember: Be proactive in connecting current questions to the user's study histo
 
   return (
     <div className="app-hero-bg relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-green-400/20 to-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
-        <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-gradient-to-br from-cyan-400/15 to-indigo-400/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '4s'}}></div>
-        <div className="absolute bottom-1/4 left-1/4 w-64 h-64 bg-gradient-to-br from-yellow-400/15 to-orange-400/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '6s'}}></div>
-      </div>
+      {/* The custom animated background elements were removed as they are handled by .app-hero-bg */}
 
       <div className="container mx-auto px-4 py-6 relative z-10">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <Card className="elevated-card p-4 md:p-6 mb-6 animate-fadeInUp">
-            <div className="flex items-center justify-between">
+          {/* Header Card - Elevated and animated */}
+          <Card className="elevated-card p-4 md:p-6 mb-6 animate-fadeInUp shadow-elegant-lg hover-lift">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-r from-green-500 to-blue-600 rounded-full shadow-lg">
-                  <MessageCircle className="h-6 w-6 text-white" />
+                {/* Arivu Icon with Primary Glow */}
+                <div className="p-3 bg-gradient-to-r from-primary to-primary-glow rounded-full shadow-lg pulse-glow flex-shrink-0">
+                  <MessageCircle className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold gradient-text">
+                  {/* Gradient Text for Title */}
+                  <h1 className="text-3xl lg:text-4xl font-extrabold gradient-text">
                     Arivu - AI Assistant
                   </h1>
-                  <p className="text-gray-600">Your intelligent study companion</p>
+                  <p className="text-sm text-muted-foreground mt-1">Your intelligent study companion</p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Theme Toggle Button */}
                 <button
                   onClick={() => setIsDark(v => !v)}
-                  className="theme-toggle"
+                  className="theme-toggle hover-lift"
                   aria-label="Toggle theme"
                   title="Toggle theme"
                 >
-                  {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                 </button>
-                <div className="p-2 bg-gradient-to-r from-orange-400 to-red-500 rounded-lg shadow-md">
-                  <Languages className="h-4 w-4 text-white" />
+                
+                {/* Language Selector */}
+                <div className="flex items-center gap-2 relative">
+                    <div className="p-2 bg-gradient-to-r from-secondary to-secondary-hover rounded-lg shadow-md">
+                        <Languages className="h-4 w-4 text-secondary-foreground" />
+                    </div>
+                    {/* Applying input-elegant to select */}
+                    <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value as "english" | "tamil")}
+                        className="input-elegant text-sm py-2 px-3 relative z-10 pr-10"
+                    >
+                        <option value="english">English</option>
+                        <option value="tamil">தமிழ்</option>
+                    </select>
                 </div>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as "english" | "tamil")}
-                  className="input-elegant text-sm py-2 px-3 relative z-10"
-                >
-                  <option value="english">English</option>
-                  <option value="tamil">தமிழ்</option>
-                </select>
               </div>
             </div>
           </Card>
 
-          {/* Chat Area */}
-          <Card className="elevated-card animate-fadeInUp" style={{animationDelay: '0.2s'}}>
-            <ScrollArea className="h-[60vh] md:h-[65vh] p-3 md:p-4" ref={scrollAreaRef}>
-              <div className="space-y-3 md:space-y-4">
+          {/* Chat Area - Elevated Card with Backdrop Blur */}
+          <Card className="elevated-card animate-fadeInUp backdrop-blur-elegant" style={{animationDelay: '0.2s'}}>
+            <ScrollArea className="h-[60vh] md:h-[65vh] p-3 md:p-4 relative z-20" ref={scrollAreaRef}>
+              <div className="space-y-3 md:space-y-4 stagger-animation">
                 {messages.map((message, index) => (
                   <div
                     key={message.id}
-                    className={`flex gap-2 md:gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fadeInUp`}
-                    style={{animationDelay: `${index * 0.1}s`}}
+                    className={`flex gap-2 md:gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    style={{animationDelay: `${index * 0.1}s`}} // Staggering messages
                   >
                     {message.sender === 'arivu' && (
-                      <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-                        <Brain className="h-4 w-4 text-white" />
+                      <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent-success rounded-full flex items-center justify-center flex-shrink-0 shadow-lg hover-lift">
+                        <Brain className="h-4 w-4 text-primary-foreground" />
                       </div>
                     )}
                     
                     <div className={`max-w-[85%] md:max-w-[80%] ${message.sender === 'user' ? 'order-1' : 'order-2'}`}>
                       <div
-                        className={`p-2.5 md:p-3 backdrop-blur-sm ${message.sender === 'user' ? 'chat-bubble-user ml-auto' : 'chat-bubble-ai'}`}
+                        className={`p-3 md:p-4 backdrop-blur-sm shadow-elegant-lg ${message.sender === 'user' ? 'chat-bubble-user ml-auto' : 'chat-bubble-ai'}`}
                       >
-                        <div className={`${message.sender === 'arivu' ? 'ai-prose' : ''}`}>
+                        {/* Applying ai-prose for Arivu's markdown-like response */}
+                        <div className={`${message.sender === 'arivu' ? 'ai-prose' : 'text-primary-foreground'}`}>
                           <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         </div>
                         
                         {message.attachments && message.attachments.length > 0 && (
                           <div className="mt-2 space-y-1">
                             {message.attachments.map((file, index) => (
-                              <div key={index} className="text-xs opacity-75 bg-white/20 rounded-lg px-2 py-1">
-                                📎 {file.name}
+                              <div key={index} className="text-xs opacity-90 glass-card px-2 py-1 flex items-center gap-1 shadow-elegant">
+                                <Paperclip className="h-3 w-3 text-primary" />
+                                <span className="text-muted-foreground font-medium truncate max-w-[100px] md:max-w-[140px] text-xs">
+                                  {file.name}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -397,8 +417,8 @@ Remember: Be proactive in connecting current questions to the user's study histo
                     </div>
 
                     {message.sender === 'user' && (
-                      <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0 order-2 shadow-lg">
-                        <User className="h-4 w-4 text-white" />
+                      <div className="w-8 h-8 bg-gradient-to-r from-secondary-hover to-primary-glow rounded-full flex items-center justify-center flex-shrink-0 order-2 shadow-lg hover-lift">
+                        <User className="h-4 w-4 text-primary-foreground" />
                       </div>
                     )}
                   </div>
@@ -406,14 +426,15 @@ Remember: Be proactive in connecting current questions to the user's study histo
                 
                 {isLoading && (
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center">
-                      <Brain className="h-4 w-4 text-white" />
+                    <div className="w-8 h-8 bg-gradient-to-r from-primary to-accent-success rounded-full flex items-center justify-center">
+                      <Brain className="h-4 w-4 text-primary-foreground" />
                     </div>
-                    <div className="chat-bubble-ai p-3">
+                    <div className="chat-bubble-ai p-3 shadow-elegant">
                       <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        {/* Elegant loading dots */}
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                       </div>
                     </div>
                   </div>
@@ -421,27 +442,28 @@ Remember: Be proactive in connecting current questions to the user's study histo
               </div>
             </ScrollArea>
 
-            {/* File Attachments */}
+            {/* File Attachments Area - Soft divider and elegant background */}
             {selectedFiles.length > 0 && (
-              <div className="soft-divider p-3 md:p-4 bg-gradient-to-r from-purple-50/50 to-blue-50/50">
+              <div className="soft-divider p-3 md:p-4 bg-gradient-to-r from-card/[0.8] to-background/[0.8] backdrop-blur-md">
                 <div className="flex flex-wrap gap-2">
                   {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center gap-2 glass-card px-3 py-2 animate-fadeInUp" style={{animationDelay: `${index * 0.1}s`}}>
+                    <div key={index} className="flex items-center gap-2 glass-card px-3 py-2 animate-fadeInUp shadow-elegant" style={{animationDelay: `${index * 0.1}s`}}>
                       {file.type.startsWith('image/') ? (
-                        <div className="p-1 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-lg">
+                        <div className="p-1 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-lg">
                           <Image className="h-3 w-3 text-white" />
                         </div>
                       ) : (
-                        <div className="p-1 bg-gradient-to-r from-red-400 to-pink-500 rounded-lg">
+                        <div className="p-1 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg">
                           <Paperclip className="h-3 w-3 text-white" />
                         </div>
                       )}
-                      <span className="text-sm text-blue-800 font-medium truncate max-w-[140px] md:max-w-[180px]">
+                      <span className="text-sm text-foreground font-medium truncate max-w-[140px] md:max-w-[180px]">
                         {file.name}
                       </span>
                       <button
                         onClick={() => removeFile(index)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-100 rounded-full w-5 h-5 flex items-center justify-center transition-all duration-200 text-sm leading-none"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full w-5 h-5 flex items-center justify-center transition-all duration-200 text-sm leading-none"
+                        aria-label={`Remove file ${file.name}`}
                       >
                         ×
                       </button>
@@ -451,9 +473,9 @@ Remember: Be proactive in connecting current questions to the user's study histo
               </div>
             )}
 
-            {/* Input Area */}
-            <div className="soft-divider p-3 md:p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 backdrop-blur-sm">
-              <div className="chat-input-bar">
+            {/* Input Area - Soft divider and elegant background */}
+            <div className="soft-divider p-3 md:p-4 bg-gradient-to-r from-card/[0.8] to-background/[0.8] backdrop-blur-md">
+              <div className="flex items-center chat-input-bar">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -463,29 +485,40 @@ Remember: Be proactive in connecting current questions to the user's study histo
                   className="hidden"
                 />
                 
-                <button onClick={() => fileInputRef.current?.click()} className="chat-action-btn" aria-label="Attach">
-                  <Paperclip className="h-5 w-5" />
+                {/* Attach Button - Styled with theme-toggle for elegance */}
+                <button 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="chat-action-btn theme-toggle hover-lift"
+                  aria-label="Attach file"
+                  title="Attach file (Image or PDF)"
+                  disabled={isLoading}
+                >
+                  <Paperclip className="h-5 w-5 text-muted-foreground" />
                 </button>
                 
+                {/* Text Input - Applying input-elegant */}
                 <input
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder={language === "tamil" 
                     ? "எதைப் பற்றி கேட்க விரும்புகிறீர்கள்?"
-                    : "Ask me anything..."
+                    : "Ask Arivu anything..."
                   }
-                  className="chat-text-input"
+                  className="chat-text-input input-elegant relative z-10"
                   disabled={isLoading}
                 />
                 
+                {/* Send Button - Applying btn-primary styling logic for visual impact */}
                 <button
                   onClick={sendMessage}
                   disabled={isLoading || (!inputMessage.trim() && selectedFiles.length === 0)}
-                  className="chat-action-btn bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  aria-label="Send"
+                  // Use btn-primary for a rich gradient and shadow, but override padding to fit the icon
+                  className="chat-action-btn btn-primary p-0 flex items-center justify-center disabled:opacity-50 disabled:bg-muted disabled:shadow-none disabled:transform-none disabled:hover:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Send message"
+                  title="Send message"
                 >
-                  <Send className="h-5 w-5" />
+                  <Send className="h-5 w-5 text-primary-foreground" />
                 </button>
               </div>
             </div>
