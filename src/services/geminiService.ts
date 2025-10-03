@@ -15,6 +15,46 @@ const getApiUrl = (model: string) => {
   return `${API_CONFIG.baseUrl}/${API_CONFIG.apiVersion}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 };
 
+const estimateTokenCount = (text: string): number => {
+  return Math.ceil(text.length / 4);
+};
+
+const validateContentSize = (text: string, maxTokens: number = 6000): { isValid: boolean; tokenEstimate: number } => {
+  const tokenEstimate = estimateTokenCount(text);
+  return {
+    isValid: tokenEstimate <= maxTokens,
+    tokenEstimate
+  };
+};
+
+const retryWithBackoff = async <T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 2,
+  baseDelay: number = 1000
+): Promise<T> => {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      const errorMessage = lastError.message.toLowerCase();
+
+      if (errorMessage.includes('max_tokens') && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.warn(`Attempt ${attempt + 1} failed with MAX_TOKENS. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError || new Error('Retry failed');
+};
+
 // New internal function to perform analysis on text content (Text-Only)
 const analyzeTextContent = async (textContent: string, outputLanguage: "english" | "tamil"): Promise<any> => {
   const languageInstruction = outputLanguage === "tamil" 
@@ -532,7 +572,7 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
         contents: [{ parts: [{ text: generationPrompt }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 3000,
+          maxOutputTokens: 4096,
           response_mime_type: "application/json",
         }
       })
@@ -550,10 +590,15 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const candidate = data?.candidates?.[0];
+    const content = candidate?.content?.parts?.[0]?.text;
+    const finishReason = candidate?.finishReason;
 
     if (!content) {
-      throw new Error('No content received from Gemini API during question generation');
+      if (finishReason === 'MAX_TOKENS') {
+        throw new Error('Response exceeded token limit. The content is too large. Try analyzing a smaller page range.');
+      }
+      throw new Error(`No content received from Gemini API during question generation (reason: ${finishReason || 'unknown'})`);
     }
 
     const questions = JSON.parse(content);
@@ -963,17 +1008,24 @@ export const analyzePdfContent = async (
   textContent: string,
   outputLanguage: "english" | "tamil" = "english"
 ): Promise<AnalysisResult> => {
-  try {
-    const languageInstruction = outputLanguage === "tamil" 
-      ? "Please provide all responses in Tamil language. Use Tamil script for all content."
-      : "Please provide all responses in English language.";
+  return retryWithBackoff(async () => {
+    try {
+      const validation = validateContentSize(textContent, 8000);
+      if (!validation.isValid) {
+        console.warn(`Content size (${validation.tokenEstimate} tokens) exceeds recommended limit. Truncating to 8000 characters.`);
+      }
 
+      const languageInstruction = outputLanguage === "tamil"
+        ? "Please provide all responses in Tamil language. Use Tamil script for all content."
+        : "Please provide all responses in English language.";
+
+    const contentToAnalyze = textContent.substring(0, 8000);
     const prompt = `
 Analyze this PDF text content for TNPSC (Tamil Nadu Public Service Commission) exam preparation:
 
 ${languageInstruction}
 
-Content: ${textContent.substring(0, 8000)}
+Content: ${contentToAnalyze}
 
 Please provide a comprehensive analysis in the following JSON format:
 {
@@ -1033,7 +1085,7 @@ MEMORY TIP GUIDELINES:
         ],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 4096,
           response_mime_type: "application/json",
         }
       })
@@ -1113,17 +1165,18 @@ MEMORY TIP GUIDELINES:
       };
     }
     
-    return {
-      keyPoints: result.keyPoints || [],
-      summary: result.summary || '',
-      tnpscRelevance: result.tnpscRelevance || '',
-      studyPoints: result.studyPoints || [],
-      tnpscCategories: result.tnpscCategories || []
-    };
-  } catch (error) {
-    console.error('Error analyzing PDF content:', error);
-    throw error;
-  }
+      return {
+        keyPoints: result.keyPoints || [],
+        summary: result.summary || '',
+        tnpscRelevance: result.tnpscRelevance || '',
+        studyPoints: result.studyPoints || [],
+        tnpscCategories: result.tnpscCategories || []
+      };
+    } catch (error) {
+      console.error('Error analyzing PDF content:', error);
+      throw error;
+    }
+  });
 };
 
 export const analyzeIndividualPage = async (

@@ -387,7 +387,17 @@ const StudyAssistant = () => {
       toast.success(`Quiz generated for pages ${pageRange.start} to ${pageRange.end}!`);
     } catch (error) {
       console.error("Question generation error:", error);
-      toast.error("Failed to generate questions. Please try again.");
+      const errorMessage = (error as Error).message || '';
+
+      if (errorMessage.includes('MAX_TOKENS') || errorMessage.includes('token limit')) {
+        toast.error("Content too large. Try a smaller page range (e.g., 1-3 pages at a time).");
+      } else if (errorMessage.includes('SAFETY')) {
+        toast.error("Content blocked by safety filters. Please try different content.");
+      } else if (errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+        toast.error("API rate limit reached. Please wait a moment and try again.");
+      } else {
+        toast.error("Failed to generate questions. Please try again with fewer pages.");
+      }
     } finally {
       setIsGeneratingQuestions(false);
     }
