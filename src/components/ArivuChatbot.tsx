@@ -1,5 +1,3 @@
-// src/components/admin/ArivuChatbot.tsx
-// VERSION: Final - Plain Text Enforcement and Build-Safe.
 
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
@@ -62,8 +60,9 @@ const ArivuChatbot = () => {
     
     try {
       const history = await getStudyHistory(user.uid);
-      const recentHistory = history.slice(0, 10);
+      const recentHistory = history.slice(0, 10); // Get more history for better context
       
+      // Create comprehensive study context
       const analysisRecords = recentHistory.filter(h => h.type === "analysis");
       const quizRecords = recentHistory.filter(h => h.type === "quiz");
       
@@ -91,16 +90,23 @@ const ArivuChatbot = () => {
           contextText += `   Difficulty: ${record.difficulty}, Language: ${record.language}\n`;
         });
         
+        // Calculate average performance
         const avgScore = Math.round(quizRecords.reduce((acc, h) => acc + (h.percentage || 0), 0) / quizRecords.length);
         contextText += `   Average Performance: ${avgScore}%\n\n`;
       }
       
+      // Add study patterns and suggestions
       if (recentHistory.length > 0) {
         const recentTopics = analysisRecords
           .map(r => r.analysisData?.mainTopic || r.fileName)
           .filter(Boolean)
           .slice(0, 5);
         
+        if (recentTopics.length > 0) {
+          contextText += `RECENT STUDY FOCUS: ${recentTopics.join(', ')}\n`;
+        }
+        
+        // Add performance insights
         if (quizRecords.length >= 2) {
           const recentPerformance = quizRecords.slice(0, 3).map(q => q.percentage || 0);
           const trend = recentPerformance[0] > recentPerformance[1] ? "improving" : "needs attention";
@@ -169,27 +175,50 @@ const ArivuChatbot = () => {
         ? "Please respond in Tamil language using Tamil script."
         : "Please respond in English language.";
 
-      // ========================================================================
-      // *** FINAL PROMPT FIX: Enforce Plain Text and Key-Value Structure ***
-      // ========================================================================
-      let prompt = `You are 'Arivu', an intelligent, conversational, and extremely concise AI study companion. Your primary role is to assist with TNPSC (Tamil Nadu Public Service Commission) exam preparation.
+      // Enhanced context-aware prompt
+      let prompt = `You are 'Arivu', an intelligent AI study companion with deep knowledge of the user's learning journey. You can help with:
 
-CRITICAL INSTRUCTIONS:
-- Your answer must be **plain text**. **DO NOT use Markdown formatting (e.g., **, #, *, ---).**
-- Structure your answer using **Key-Value pairs and explicit newlines** for readability (e.g., "Placement: Part IVA, Article 51A\nOrigin: 1950 Constitution (Not Included)").
-- **Be extremely concise and stick to the core facts.** Output no more than 4-5 short paragraphs total.
-- ${languageInstruction}
+1. TNPSC (Tamil Nadu Public Service Commission) exam preparation - your primary expertise
+2. General knowledge and current affairs
+3. Math problems and calculations
+4. Science and technology questions
+5. History, geography, and social studies
+6. Analysis of uploaded documents and images
+7. Any other questions users might have
 
 INTELLIGENT FEATURES:
-- You have access to the user's study history (provided below). Proactively suggest connections or related study materials when relevant.
+- You have access to the user's complete study history and can reference previous materials
+- You can suggest connections between current questions and previously studied topics
+- You can provide personalized study recommendations based on past performance
+- You can identify knowledge gaps and suggest focused study areas
+- You proactively offer relevant suggestions from the user's study database
+
+RESPONSE APPROACH:
+- Be helpful, accurate, and conversational
+- ALWAYS check if the question relates to previously studied materials and mention connections
+- Proactively suggest related topics from the user's study history when relevant
+- For TNPSC topics, provide exam-focused content with memory tips
+- When users ask general questions, check if they've studied related topics before
+- Always be encouraging and supportive
+- ${languageInstruction}
+- Provide excellent memory tips and study strategies
+- If you notice patterns in their study history, mention them helpfully
 
 ${studyHistory ? `USER'S STUDY CONTEXT:\n${studyHistory}\n` : 'No previous study history available.\n'}
 
-User's Query (Analyze/Question/Message): ${inputMessage}
+PROACTIVE SUGGESTIONS:
+- If the user asks about any topic, immediately check if they've studied related materials before
+- Suggest connections: "I see you previously studied [topic], which connects to this because..."
+- Offer study tips: "Based on your quiz performance in [subject], I recommend focusing on..."
+- Provide memory aids: "Here's a great memory tip for this concept..."
+- Reference past materials: "This relates to the [document] you analyzed earlier..."
 
-REMEMBER: Be concise, accurate, and proactive in connecting the question to the user's study history!`;
-      // ========================================================================
+Conversation history:
+${conversationHistory}
 
+User's new message: ${inputMessage}
+
+Remember: Be proactive in connecting current questions to the user's study history and offer relevant suggestions!`;
 
       const requestBody: any = {
         contents: [
@@ -200,29 +229,27 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
           }
         ],
         generationConfig: {
-          temperature: 0.5, 
-          maxOutputTokens: 768, 
+          temperature: 0.7,
+          maxOutputTokens: 2000,
         }
       };
 
       // Add images if any
       if (selectedFiles.length > 0) {
-        const imageParts = [];
         for (const file of selectedFiles) {
           if (file.type.startsWith('image/')) {
             const base64Image = await convertToBase64(file);
-            imageParts.push({
-              inlineData: { // Use correct casing for safety
+            requestBody.contents[0].parts.push({
+              inline_data: {
                 mime_type: file.type,
                 data: base64Image.split(',')[1]
               }
             });
           }
         }
-        requestBody.contents[0].parts.push(...imageParts);
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,9 +258,7 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Gemini API error:", errorText);
-        throw new Error(`HTTP error! status: ${response.status}. Details: ${errorText.substring(0, 100)}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -248,7 +273,7 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
         };
         setMessages(prev => [...prev, arivuMessage]);
       } else {
-        throw new Error('No response content received from Arivu');
+        throw new Error('No response from Arivu');
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -258,7 +283,7 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
         id: (Date.now() + 1).toString(),
         content: language === "tamil" 
           ? "மன்னிக்கவும், இப்போது பதிலளிப்பதில் சிக்கல் உள்ளது. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்."
-          : `I'm sorry, I'm having trouble responding right now. Please try again in a moment.`,
+          : "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
         sender: "arivu",
         timestamp: new Date()
       };
@@ -275,17 +300,6 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
       sendMessage();
     }
   };
-
-  // Auto-scroll logic (optional but good for chat UIs)
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-        const scrollElement = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
-        if (scrollElement) {
-            scrollElement.scrollTop = scrollElement.scrollHeight;
-        }
-    }
-  }, [messages]);
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative overflow-hidden">
@@ -354,7 +368,6 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
                             : 'bg-white/95 text-gray-800 border border-gray-200/50 hover:shadow-xl transition-all duration-300'
                         }`}
                       >
-                        {/* FIX: Simplified rendering - relying on whitespace-pre-wrap for formatting */}
                         <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         
                         {message.attachments && message.attachments.length > 0 && (
