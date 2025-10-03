@@ -169,7 +169,3 @@ export const downloadPDF = async ({ title, content, type }: PDFContent) => {
         document.body.removeChild(container);
     }
 };
-
-// NOTE: You must also install 'html2canvas' and 'react-dom' if not already installed.
-// npm install html2canvas
-// npm install react-dom // (if you are not using a framework that provides it)
