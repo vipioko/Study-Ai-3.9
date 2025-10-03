@@ -359,12 +359,12 @@ Remember: Be proactive in connecting current questions to the user's study histo
 
           {/* Chat Area */}
           <Card className="elevated-card animate-fadeInUp" style={{animationDelay: '0.2s'}}>
-            <ScrollArea className="h-[500px] p-4" ref={scrollAreaRef}>
-              <div className="space-y-4">
+            <ScrollArea className="h-[60vh] md:h-[65vh] p-3 md:p-4" ref={scrollAreaRef}>
+              <div className="space-y-3 md:space-y-4">
                 {messages.map((message, index) => (
                   <div
                     key={message.id}
-                    className={`flex gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fadeInUp`}
+                    className={`flex gap-2 md:gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fadeInUp`}
                     style={{animationDelay: `${index * 0.1}s`}}
                   >
                     {message.sender === 'arivu' && (
@@ -373,9 +373,9 @@ Remember: Be proactive in connecting current questions to the user's study histo
                       </div>
                     )}
                     
-                    <div className={`max-w-[80%] ${message.sender === 'user' ? 'order-1' : 'order-2'}`}>
+                    <div className={`max-w-[85%] md:max-w-[80%] ${message.sender === 'user' ? 'order-1' : 'order-2'}`}>
                       <div
-                        className={`p-3 backdrop-blur-sm ${message.sender === 'user' ? 'chat-bubble-user ml-auto' : 'chat-bubble-ai'}`}
+                        className={`p-2.5 md:p-3 backdrop-blur-sm ${message.sender === 'user' ? 'chat-bubble-user ml-auto' : 'chat-bubble-ai'}`}
                       >
                         <div className={`${message.sender === 'arivu' ? 'ai-prose' : ''}`}>
                           <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
@@ -423,7 +423,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
 
             {/* File Attachments */}
             {selectedFiles.length > 0 && (
-              <div className="soft-divider p-4 bg-gradient-to-r from-purple-50/50 to-blue-50/50">
+              <div className="soft-divider p-3 md:p-4 bg-gradient-to-r from-purple-50/50 to-blue-50/50">
                 <div className="flex flex-wrap gap-2">
                   {selectedFiles.map((file, index) => (
                     <div key={index} className="flex items-center gap-2 glass-card px-3 py-2 animate-fadeInUp" style={{animationDelay: `${index * 0.1}s`}}>
@@ -436,7 +436,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
                           <Paperclip className="h-3 w-3 text-white" />
                         </div>
                       )}
-                      <span className="text-sm text-blue-800 font-medium truncate max-w-[100px]">
+                      <span className="text-sm text-blue-800 font-medium truncate max-w-[140px] md:max-w-[180px]">
                         {file.name}
                       </span>
                       <button
@@ -452,7 +452,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
             )}
 
             {/* Input Area */}
-            <div className="soft-divider p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 backdrop-blur-sm">
+            <div className="soft-divider p-3 md:p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 backdrop-blur-sm">
               <div className="chat-input-bar">
                 <input
                   type="file"
@@ -464,7 +464,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
                 />
                 
                 <button onClick={() => fileInputRef.current?.click()} className="chat-action-btn" aria-label="Attach">
-                  <Paperclip className="h-4 w-4" />
+                  <Paperclip className="h-5 w-5" />
                 </button>
                 
                 <input
@@ -485,7 +485,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
                   className="chat-action-btn bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
                   aria-label="Send"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-5 w-5" />
                 </button>
               </div>
             </div>
