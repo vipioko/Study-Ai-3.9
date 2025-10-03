@@ -1,4 +1,5 @@
 // src/components/admin/StudyHistory.tsx
+// VERSION: Final - Implements HTML-to-Image-to-PDF fix for Tamil font rendering.
 
 import { useState, useEffect } from "react";
 import html2canvas from 'html2canvas'; // <<< NEW IMPORT
@@ -15,71 +16,76 @@ import { toast } from "sonner";
 import { downloadImageAsPDF, PDFContent } from "@/utils/pdfUtils"; // <<< UPDATED IMPORT
 import { useAppContext } from "@/contexts/AppContext";
 import { generateQuestions } from "@/services/geminiService";
-import { QuestionResult } from "./StudyAssistant";
-import { AnalysisResult, StudyPoint } from "./StudyAssistant"; // Assuming StudyAssistant is in the same directory
+import { QuestionResult, AnalysisResult, StudyPoint } from "./StudyAssistant"; // Assuming StudyAssistant is in the same directory
 
 
-// Component to render the record data in a hidden div for html2canvas
+// ========================================================================
+// 1. RECORD CONTENT RENDERER COMPONENT (for html2canvas)
+// ========================================================================
 interface RecordContentRendererProps {
   record: StudyHistoryRecord;
 }
 
-// NOTE: This component MUST be rendered in the main JSX of StudyHistory. 
-// However, since I cannot modify the main JSX, I am including the logic 
-// to be inserted where it can render the content.
 const RecordContentRenderer: React.FC<RecordContentRendererProps> = ({ record }) => {
     // This logic must exactly match the content structure you want in the PDF
-    const data = record.type === "quiz" ? record.quizData : record.analysisData;
-    const title = record.type === "quiz" ? `Quiz Results` : `Study Analysis`;
+    // Assuming analysisData and quizData are the structured objects.
+    const data = record.type === "quiz" ? record.quizData : (Array.isArray(record.analysisData) ? record.analysisData[0] : record.analysisData);
+    const title = record.type === "quiz" ? `Quiz Results - ${record.fileName}` : `Study Analysis - ${record.fileName}`;
 
     if (!data) return null;
+    
+    // Convert timestamp for display
+    const dateString = record.timestamp.toDate().toLocaleDateString();
 
     return (
-        <div id={`record-content-${record.id}`} className="p-8 bg-white text-black max-w-4xl mx-auto" style={{
-            // Critical styles for rendering the canvas correctly
-            fontFamily: 'Noto Sans Tamil, Arial, sans-serif', 
-            fontSize: '12pt',
-            lineHeight: '1.5',
-            padding: '2rem'
-        }}>
+        <div 
+            id={`record-content-${record.id}`} 
+            // Important styles for clean rendering before canvas capture
+            className="p-8 bg-white text-black max-w-4xl mx-auto" 
+            style={{ 
+                fontFamily: 'Noto Sans Tamil, Arial, sans-serif', // Ensure a Tamil font is referenced here (must be installed on the user's OS/Browser)
+                fontSize: '12pt',
+                lineHeight: '1.5',
+                width: '800px', // Fixed width for consistent PDF output size
+                minHeight: '1100px' // Minimum height for A4 page dimensions
+            }}
+        >
             <h1 style={{ fontSize: '24pt', fontWeight: 'bold', marginBottom: '1rem' }}>{title}</h1>
-            <p style={{ marginBottom: '0.5rem' }}>**File:** {record.fileName || 'N/A'}</p>
-            <p style={{ marginBottom: '1rem' }}>**Date:** {record.timestamp.toDate().toLocaleString()}</p>
+            <p style={{ marginBottom: '0.5rem' }}>**Date:** {dateString}</p>
+            <p style={{ marginBottom: '1rem' }}>**Difficulty:** {record.difficulty?.toUpperCase()} | **Language:** {record.language === 'tamil' ? 'தமிழ்' : 'English'}</p>
             
             {/* RENDER ANALYSIS CONTENT */}
-            {record.type === "analysis" && Array.isArray(data) && data.map((analysis: AnalysisResult, index) => (
-                <div key={index} style={{ marginBottom: '2rem', borderTop: '1px solid #ccc', paddingTop: '1rem' }}>
-                    <h2 style={{ fontSize: '18pt', fontWeight: 'bold', marginBottom: '0.5rem' }}>{analysis.mainTopic || `Analysis ${index + 1}`}</h2>
+            {record.type === "analysis" && data && (data as AnalysisResult) && (
+                <div style={{ marginBottom: '2rem', borderTop: '1px solid #ccc', paddingTop: '1rem' }}>
+                    <h2 style={{ fontSize: '18pt', fontWeight: 'bold', marginBottom: '0.5rem' }}>{data.mainTopic || 'Analysis Summary'}</h2>
                     
                     <h3 style={{ fontSize: '14pt', fontWeight: 'bold', marginTop: '1rem' }}>Summary:</h3>
-                    <p>{analysis.summary}</p>
+                    <p>{data.summary}</p>
 
                     <h3 style={{ fontSize: '14pt', fontWeight: 'bold', marginTop: '1rem' }}>Study Points:</h3>
                     <ul style={{ paddingLeft: '20px' }}>
-                        {analysis.studyPoints && analysis.studyPoints.map((point: StudyPoint, pointIndex) => (
-                            <li key={pointIndex} style={{ marginBottom: '0.5rem' }}>
-                                <p style={{ fontWeight: 'bold' }}>{point.title}</p>
-                                <p style={{ marginLeft: '10px' }}>{point.description}</p>
-                                <p style={{ marginLeft: '10px', fontStyle: 'italic', color: '#666' }}>🧠 Tip: {point.memoryTip}</p>
+                        {data.studyPoints && data.studyPoints.map((point: StudyPoint, pointIndex) => (
+                            <li key={pointIndex} style={{ marginBottom: '1rem', borderBottom: '1px dotted #eee', paddingBottom: '0.5rem' }}>
+                                <p style={{ fontWeight: 'bold', color: '#333' }}>{point.title}</p>
+                                <p style={{ marginLeft: '10px', fontSize: '11pt' }}>{point.description}</p>
+                                <p style={{ marginLeft: '10px', fontStyle: 'italic', color: '#007bff' }}>🧠 Tip: {point.memoryTip}</p>
                             </li>
                         ))}
                     </ul>
                 </div>
-            ))}
+            )}
             
-            {/* RENDER QUIZ CONTENT (Simplified) */}
-            {record.type === "quiz" && (
+            {/* RENDER QUIZ CONTENT */}
+            {record.type === "quiz" && data && (data as any).answers && (
                 <div style={{ marginBottom: '2rem', borderTop: '1px solid #ccc', paddingTop: '1rem' }}>
-                    <h2 style={{ fontSize: '18pt', fontWeight: 'bold', marginBottom: '0.5rem' }}>Quiz Results: {data.score}/{data.totalQuestions} ({data.percentage}%)</h2>
-                    {data.answers && data.answers.map((answer: any, index: number) => (
-                        <div key={index} style={{ marginBottom: '1rem' }}>
+                    <h2 style={{ fontSize: '18pt', fontWeight: 'bold', marginBottom: '0.5rem' }}>Score: {data.score}/{data.totalQuestions} ({data.percentage}%)</h2>
+                    
+                    {data.answers.map((answer: any, index: number) => (
+                        <div key={index} style={{ marginBottom: '1rem', padding: '0.5rem', border: `1px solid ${answer.isCorrect ? 'green' : 'red'}` }}>
                             <p style={{ fontWeight: 'bold', color: answer.isCorrect ? 'green' : 'red' }}>
                                 {index + 1}. {answer.question.question}
                             </p>
-                            <p style={{ marginLeft: '10px' }}>Your Answer: {answer.userAnswer}</p>
-                            {!answer.isCorrect && (
-                                <p style={{ marginLeft: '10px', fontWeight: 'bold', color: 'green' }}>Correct Answer: {answer.correctAnswer}</p>
-                            )}
+                            <p style={{ marginLeft: '10px', fontSize: '11pt' }}>Your Answer: **{answer.userAnswer}** | Correct: **{answer.correctAnswer}**</p>
                             <p style={{ marginLeft: '10px', fontStyle: 'italic' }}>Explanation: {answer.question.explanation}</p>
                         </div>
                     ))}
@@ -167,12 +173,10 @@ const StudyHistory = () => {
     }
   };
 
-  // ========================================================================
-  // *** CRITICAL DOWNLOAD FUNCTION WITH HTML2CANVAS FIX ***
-  // ========================================================================
   const handleDownload = async (record: StudyHistoryRecord) => {
     // 1. Locate the hidden content renderer for the specific record
-    const contentElement = document.getElementById(`record-content-${record.id}`); 
+    // Use the document.querySelector on the unique ID, as getElementById might fail in some frameworks/environments
+    const contentElement = document.querySelector(`#record-content-${record.id}`); 
     
     if (!contentElement) {
         toast.error("Error: Content rendering failed for download. Element not found.");
@@ -183,10 +187,10 @@ const StudyHistory = () => {
         toast.info("Capturing content for PDF generation...");
         
         // 2. Use html2canvas to capture the entire DOM element
-        const canvas = await html2canvas(contentElement, {
+        const canvas = await html2canvas(contentElement as HTMLElement, {
             scale: 2, // Higher scale for better resolution
             useCORS: true,
-            // Scroll to the top of the element before capture
+            // Ensure the entire content, including scrollable parts, is captured
             windowWidth: contentElement.scrollWidth,
             windowHeight: contentElement.scrollHeight,
         });
@@ -208,7 +212,7 @@ const StudyHistory = () => {
         toast.error(`Failed to download PDF. Please ensure 'html2canvas' is installed and check console for errors.`);
     }
   };
-  // ========================================================================
+
 
   const handleDelete = async (recordId: string) => {
     try {
@@ -322,7 +326,8 @@ const StudyHistory = () => {
           height: 'auto',
           width: '100%',
       }}>
-          {filteredHistory.map(record => (
+          {/* Render all records to create the hidden elements for capture */}
+          {studyHistory.map(record => (
               <RecordContentRenderer key={`renderer-${record.id}`} record={record} />
           ))}
       </div>
