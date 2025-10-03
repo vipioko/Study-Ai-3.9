@@ -812,3 +812,64 @@
     width: 40px;
     height: 40px;
   }
+
+  /* App premium background with soft grid + gradient */
+  .app-hero-bg {
+    position: relative;
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 100% -10%, hsl(var(--primary) / 0.12), transparent 60%),
+                radial-gradient(1000px 500px at -10% 110%, hsl(var(--accent-success) / 0.10), transparent 60%),
+                linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)) 60%);
+    overflow: hidden;
+  }
+  .app-hero-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(transparent, transparent 31px, hsl(var(--border)) 32px),
+      linear-gradient(90deg, transparent, transparent 31px, hsl(var(--border)) 32px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(800px 400px at 50% -10%, black, transparent 70%);
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  /* Elevated card with subtle border and glow */
+  .elevated-card {
+    @apply relative overflow-hidden rounded-2xl;
+    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 30px hsl(var(--foreground) / 0.07);
+  }
+  .elevated-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(600px 200px at 10% -20%, hsl(var(--primary) / 0.10), transparent 60%);
+    pointer-events: none;
+  }
+
+  /* AI prose (markdown-like) for model responses */
+  .ai-prose {
+    color: hsl(var(--foreground));
+  }
+  .ai-prose p { margin: 0.25rem 0 0.5rem; line-height: 1.7; }
+  .ai-prose strong { font-weight: 700; }
+  .ai-prose code { background: hsl(var(--muted)); padding: 0.125rem 0.375rem; border-radius: 0.375rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .ai-prose ul { padding-left: 1rem; list-style: disc; margin: 0.25rem 0 0.5rem; }
+  .ai-prose ol { padding-left: 1rem; list-style: decimal; margin: 0.25rem 0 0.5rem; }
+  .ai-prose a { color: hsl(var(--primary)); text-decoration: underline; }
+
+  /* Soft divider */
+  .soft-divider { border-top: 1px solid hsl(var(--border)); }
+
+  /* Theme toggle button */
+  .theme-toggle {
+    @apply inline-flex items-center justify-center rounded-xl border;
+    background: hsl(var(--secondary));
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+    width: 40px; height: 40px;
+  }
+  .theme-toggle:hover { background: hsl(var(--background)); }
