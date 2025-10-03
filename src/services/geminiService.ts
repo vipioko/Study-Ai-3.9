@@ -1,11 +1,11 @@
 import { AnalysisResult, QuestionResult } from "@/components/StudyAssistant";
-import { extractTextFromPdfPage, extractPageRangeFromOcr } from "@/utils/pdfReader";
+import { extractTextFromPdfPage } from "@/utils/pdfReader";
 import { parseQuestionPaperOcr } from "@/utils/questionPaperParser";
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDQcwO_13vP_dXB3OXBuTDvYfMcLXQIfkM";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY";
 
 const API_CONFIG = {
-  primaryModel: "gemini-2.5-flash",
+  primaryModel: "gemini-1.5-flash",
   fallbackModels: ["gemini-1.5-flash-001", "gemini-pro-vision"],
   apiVersion: "v1beta",
   baseUrl: "https://generativelanguage.googleapis.com"
@@ -55,7 +55,6 @@ const retryWithBackoff = async <T>(
   throw lastError || new Error('Retry failed');
 };
 
-// New internal function to perform analysis on text content (Text-Only)
 const analyzeTextContent = async (textContent: string, outputLanguage: "english" | "tamil"): Promise<any> => {
   const languageInstruction = outputLanguage === "tamil" 
     ? "Please provide all responses in Tamil language. Use Tamil script for all content."
@@ -83,7 +82,6 @@ Please provide a comprehensive analysis in the following JSON format:
       "title": "Key point title (Very Concise)",
       "description": "Detailed description (Max 3 concise sentences)",
       "importance": "high/medium/low",
-      // FIX: Memory tip optimized for TNPSC review
       "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
@@ -131,7 +129,6 @@ MEMORY TIP GUIDELINES:
 export const analyzeImage = async (file: File, outputLanguage: "english" | "tamil" = "english"): Promise<AnalysisResult> => {
   const base64Image = await convertToBase64(file);
   
-  // 1. ATTEMPT DIRECT IMAGE-TO-JSON ANALYSIS
   try {
     const languageInstruction = outputLanguage === "tamil" 
       ? "Please provide all responses in Tamil language. Use Tamil script for all content."
@@ -160,7 +157,6 @@ Please provide a comprehensive analysis in the following JSON format:
       "title": "Key point title (Very Concise)",
       "description": "Detailed description (Max 3 concise sentences)",
       "importance": "high/medium/low",
-      // FIX: Memory tip optimized for TNPSC review
       "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
@@ -185,12 +181,11 @@ MEMORY TIP GUIDELINES:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // FIX: Consolidated structure for multimodal input
         contents: [
           { 
             parts: [
               { text: prompt },
-              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } } // FIX: inlineData is now correctly nested in parts
+              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } }
             ]
           }
         ],
@@ -205,11 +200,9 @@ MEMORY TIP GUIDELINES:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response (Direct Image Analysis):', errorText);
-
       if (response.status === 404) {
         throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
       }
-
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
@@ -218,12 +211,10 @@ MEMORY TIP GUIDELINES:
     return result;
 
   } catch (error) {
-    // 2. CHECK FOR MAX_TOKENS ERROR
     const errorString = (error as Error).message;
     if (errorString.includes('MAX_TOKENS') || errorString.includes('Output truncated or malformed')) {
       console.warn('Direct image analysis failed with MAX_TOKENS or truncation. Falling back to OCR -> Analysis.');
       
-      // 3. FALLBACK: OCR -> TEXT ANALYSIS
       try {
         const rawText = await extractRawTextFromImage(file);
         
@@ -237,18 +228,15 @@ MEMORY TIP GUIDELINES:
 
       } catch (fallbackError) {
         console.error('Error during OCR/Text Analysis Fallback:', fallbackError);
-        // If the fallback also fails, throw the original error or a combined one
         throw new Error(`Analysis failed after fallback: ${(fallbackError as Error).message}`);
       }
     }
     
-    // For all other errors (404, safety block, invalid payload, etc.), throw the original error
     console.error('Error analyzing image:', error);
     throw error;
   }
 };
 
-// Helper function to process the model's structured JSON response
 const processGeminiResponse = (data: any): AnalysisResult => {
     const candidates = data.candidates;
     
@@ -284,7 +272,6 @@ const processGeminiResponse = (data: any): AnalysisResult => {
 
     console.log('Raw Gemini response:', content);
 
-    // Clean and parse the JSON response
     const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
     
     if (!cleanedContent.startsWith('{') || !cleanedContent.endsWith('}')) {
@@ -292,28 +279,24 @@ const processGeminiResponse = (data: any): AnalysisResult => {
         throw new Error(`Gemini API returned non-JSON data. Output truncated or malformed (Finish Reason: ${finishReason || 'N/A'}): ${cleanedContent.substring(0, 200)}...`);
     }
     
-    const result = JSON.parse(cleanedContent);
-    
-    // The previous transformation is no longer needed as we're back to the original complex structure
-    
-    // CRITICAL: Generate a simple keyPoints array from the studyPoints titles/descriptions for AnalysisResult compatibility
-    const generatedKeyPoints = (result.studyPoints || []).map((sp: any) => sp.title + (sp.description ? (": " + sp.description) : ""));
-    
-    return {
-      // Return studyPoints as the primary analysis data
-      studyPoints: result.studyPoints || [],
-      // Re-use generated summary/relevance fields
-      summary: result.summary || '',
-      tnpscRelevance: result.tnpscRelevance || '',
-      tnpscCategories: result.tnpscCategories || [],
-      // Use the generated Key Points (titles/descriptions) for the separate keyPoints field
-      keyPoints: generatedKeyPoints, 
-      mainTopic: result.mainTopic || ''
-    };
+    try {
+        const result = JSON.parse(cleanedContent);
+        const generatedKeyPoints = (result.studyPoints || []).map((sp: any) => sp.title + (sp.description ? (": " + sp.description) : ""));
+        
+        return {
+          studyPoints: result.studyPoints || [],
+          summary: result.summary || '',
+          tnpscRelevance: result.tnpscRelevance || '',
+          tnpscCategories: result.tnpscCategories || [],
+          keyPoints: generatedKeyPoints, 
+          mainTopic: result.mainTopic || ''
+        };
+    } catch (parseError) {
+        console.error("Failed to parse JSON from processGeminiResponse:", cleanedContent);
+        throw new Error(`The model returned a malformed JSON response that could not be parsed. (Finish Reason: ${finishReason || 'N/A'})`);
+    }
 };
 
-
-// NEW FUNCTION: Extract raw text from image using Gemini
 export const extractRawTextFromImage = async (file: File): Promise<string> => {
   try {
     const base64Image = await convertToBase64(file);
@@ -326,26 +309,17 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // FIX: Consolidated structure for multimodal input
         contents: [
           {
             parts: [
-              {
-                text: prompt
-              },
-              {
-                inlineData: { // FIX: inlineData is correctly nested in parts
-                  mime_type: file.type,
-                  data: base64Image.split(',')[1]
-                }
-              }
+              { text: prompt },
+              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } }
             ]
           }
         ],
         generationConfig: {
-          temperature: 0.1, // Lower temperature for more deterministic output
+          temperature: 0.1,
           maxOutputTokens: 4096,
-          // No response_mime_type for plain text output
         }
       })
     });
@@ -365,7 +339,6 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!content) {
-      // Basic content check here, as it's not JSON constrained
       const finishReason = data.candidates?.[0]?.finishReason;
       throw new Error(`No content received from Gemini API during text extraction. Finish reason: ${finishReason || 'UNKNOWN'}`);
     }
@@ -378,37 +351,6 @@ export const extractRawTextFromImage = async (file: File): Promise<string> => {
   }
 };
 
-
-const createEnrichmentPrompt = (question: any, outputLanguage: "english" | "tamil" = "english") => {
-  const languageInstruction = outputLanguage === "tamil" 
-    ? "Please provide all responses in Tamil language."
-    : "Please provide all responses in English language.";
-
-  return `
-You are enriching an extracted question from a TNPSC question paper. Your job is to add explanation and identify the TNPSC group.
-
-${languageInstruction}
-
-Question: ${question.question}
-Options: ${question.options?.join(', ') || 'N/A'}
-Answer: ${question.answer}
-
-Please provide enrichment in this JSON format:
-{
-  "explanation": "Brief explanation of why this answer is correct",
-  "tnpscGroup": "Group 1" | "Group 2" | "Group 4"
-}
-
-Focus on:
-- Providing a clear, concise explanation
-- Correctly identifying which TNPSC group this question belongs to
-- Keep explanations educational and helpful for exam preparation
-`;
-};
-
-// ========================================================================
-// INTERNAL FUNCTION: OCR TEXT TO STRUCTURED QUESTIONS
-// ========================================================================
 const extractQuestionsFromText = async (ocrText: string, outputLanguage: "english" | "tamil"): Promise<any[]> => {
   const languageInstruction = outputLanguage === "tamil" 
     ? "Please provide all questions, options, and explanations in Tamil language. Use Tamil script."
@@ -422,7 +364,7 @@ ${languageInstruction}
 
 OCR Text to Parse:
 ---
-${ocrText}
+${ocrText.substring(0, 12000)} 
 ---
 
 CRITICAL INSTRUCTIONS:
@@ -437,7 +379,7 @@ Return as a JSON array with this exact structure (max 15 questions):
   {
     "question": "Question text here (both English and Tamil if available)",
     "options": ["Option A", "Option B", "Option C", "Option D"],
-    "answer": "A", // MUST be A, B, C, or D
+    "answer": "A",
     "type": "mcq",
     "difficulty": "medium",
     "tnpscGroup": "Group 1",
@@ -452,8 +394,8 @@ Return as a JSON array with this exact structure (max 15 questions):
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.3, // Low temperature for deterministic extraction
-        maxOutputTokens: 4096,
+        temperature: 0.3,
+        maxOutputTokens: 8192,
         response_mime_type: "application/json",
       }
     })
@@ -466,20 +408,29 @@ Return as a JSON array with this exact structure (max 15 questions):
   }
 
   const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = data.candidates?.[0];
+  const content = candidate?.content?.parts?.[0]?.text;
   
   if (!content) {
-    throw new Error('No content received from Gemini API during structured extraction.');
+      const finishReason = candidate?.finishReason || data?.promptFeedback?.blockReason;
+      throw new Error(`No content received from Gemini API during structured extraction. Finish Reason: ${finishReason}`);
   }
 
   const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-  return JSON.parse(cleanedContent) as any[];
+
+  try {
+    return JSON.parse(cleanedContent) as any[];
+  } catch (error) {
+    console.error("Failed to parse JSON from structured extraction:", cleanedContent);
+    const finishReason = candidate?.finishReason;
+    if (finishReason === 'MAX_TOKENS') {
+      throw new Error('Response exceeded token limit, resulting in incomplete JSON. The content is too large.');
+    }
+    throw new Error(`The model returned a malformed JSON response during question extraction. Raw response snippet: ${cleanedContent.substring(0, 300)}...`);
+  }
 };
 
 
-// ========================================================================
-// CORE FUNCTION: GENERATE QUESTIONS (NOW INCLUDES EXTRACTION FALLBACK)
-// ========================================================================
 export const generateQuestions = async (
   analysisResults: AnalysisResult[],
   difficulty: string = "medium",
@@ -487,15 +438,12 @@ export const generateQuestions = async (
   fullOcrText?: string
 ): Promise<QuestionResult> => {
   try {
-    // --- PATH 1: "EXTRACT, THEN ENRICH" for Question Papers ---
     if (fullOcrText) {
-      // STEP 1: PURE EXTRACTION (Attempt client-side first)
       console.log("Starting Step 1: Extracting questions from OCR text (Client-side parser)...");
       let extractedQuestions = await parseQuestionPaperOcr(fullOcrText);
       console.log(`Extraction complete. Found ${extractedQuestions.length} questions.`);
 
       if (!extractedQuestions || extractedQuestions.length === 0) {
-        // STEP 1b: FALLBACK EXTRACTION (Use Gemini for structured extraction)
         console.warn("Client-side parser failed. Falling back to Gemini for structured question extraction.");
         extractedQuestions = await extractQuestionsFromText(fullOcrText, outputLanguage);
         console.log(`Gemini Extraction complete. Found ${extractedQuestions.length} questions.`);
@@ -505,7 +453,6 @@ export const generateQuestions = async (
         }
       }
 
-      // STEP 2: Enrichment is now done inside extractQuestionsFromText, so we just map the result
       const enrichedQuestions = extractedQuestions.map(q => ({
           ...q,
           type: q.type || "mcq", 
@@ -513,7 +460,6 @@ export const generateQuestions = async (
           explanation: q.explanation || "", 
           tnpscGroup: q.tnpscGroup || "Group 1",
       }));
-
 
       return {
         questions: enrichedQuestions,
@@ -524,7 +470,6 @@ export const generateQuestions = async (
       };
     }
 
-    // --- PATH 2: ORIGINAL FALLBACK LOGIC for generating questions from study materials ---
     console.log("No OCR text provided. Generating new questions from analysis results...");
     const combinedContent = analysisResults.map(result => ({
       keyPoints: result.keyPoints.join('\n'),
@@ -572,7 +517,7 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
         contents: [{ parts: [{ text: generationPrompt }] }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
           response_mime_type: "application/json",
         }
       })
@@ -581,11 +526,9 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
-
       if (response.status === 404) {
         throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
       }
-
       throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
     }
 
@@ -601,7 +544,19 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
       throw new Error(`No content received from Gemini API during question generation (reason: ${finishReason || 'unknown'})`);
     }
 
-    const questions = JSON.parse(content);
+    const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    let questions;
+    
+    try {
+      questions = JSON.parse(cleanedContent);
+    } catch (error) {
+      console.error('Error parsing generated questions JSON:', error);
+      console.error('Raw content that failed parsing:', cleanedContent);
+      if (finishReason === 'MAX_TOKENS') {
+         throw new Error('Response exceeded token limit, resulting in incomplete JSON. The content is too large. Try analyzing a smaller page range.');
+      }
+      throw new Error(`The model returned a malformed JSON response during question generation. This can happen if the response was cut off. Raw response snippet: ${cleanedContent.substring(0, 300)}...`);
+    }
     
     return {
       questions,
@@ -623,7 +578,6 @@ CRITICAL: The "answer" field MUST contain only the single capital letter of the 
     };
   }
 };
-
 
 export const generatePageAnalysis = async (
   file: File,
