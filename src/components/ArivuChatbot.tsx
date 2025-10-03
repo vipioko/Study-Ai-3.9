@@ -1,5 +1,5 @@
 // src/components/admin/ArivuChatbot.tsx
-// VERSION: Final - Build-Safe, Concise Prompt, and Removed Problematic 'prose' Class.
+// VERSION: Final - Plain Text Enforcement and Build-Safe.
 
 import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
@@ -170,20 +170,18 @@ const ArivuChatbot = () => {
         : "Please respond in English language.";
 
       // ========================================================================
-      // *** PROMPT FIX: Simplified and Stricter for Concise Output ***
+      // *** FINAL PROMPT FIX: Enforce Plain Text and Key-Value Structure ***
       // ========================================================================
-      let prompt = `You are 'Arivu', an intelligent AI study companion with deep knowledge of the user's learning journey.
+      let prompt = `You are 'Arivu', an intelligent, conversational, and extremely concise AI study companion. Your primary role is to assist with TNPSC (Tamil Nadu Public Service Commission) exam preparation.
 
 CRITICAL INSTRUCTIONS:
-- You are a specialized TNPSC study partner. Prioritize accuracy and conciseness.
-- For analysis of an uploaded image/document, your output MUST be a structured, factual, point-by-point summary of the facts.
-- **Do NOT use excessive or unnecessary markdown, such as triple asterisks (***), excessive header (#) formatting, or long lists of bullet points.** Use simple text, single asterisks (*) for subtle emphasis if absolutely necessary, and clear newlines for separation.
-- **Stick strictly to the core facts and avoid overly conversational or elaborate phrasing.**
+- Your answer must be **plain text**. **DO NOT use Markdown formatting (e.g., **, #, *, ---).**
+- Structure your answer using **Key-Value pairs and explicit newlines** for readability (e.g., "Placement: Part IVA, Article 51A\nOrigin: 1950 Constitution (Not Included)").
+- **Be extremely concise and stick to the core facts.** Output no more than 4-5 short paragraphs total.
 - ${languageInstruction}
 
 INTELLIGENT FEATURES:
 - You have access to the user's study history (provided below). Proactively suggest connections or related study materials when relevant.
-- Proactively suggest study strategies or knowledge gaps based on the performance context.
 
 ${studyHistory ? `USER'S STUDY CONTEXT:\n${studyHistory}\n` : 'No previous study history available.\n'}
 
@@ -202,15 +200,13 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
           }
         ],
         generationConfig: {
-          temperature: 0.5, // Reduced temperature for more deterministic/factual output
-          maxOutputTokens: 768, // Reduced from 2000 to force conciseness
+          temperature: 0.5, 
+          maxOutputTokens: 768, 
         }
       };
 
       // Add images if any
       if (selectedFiles.length > 0) {
-        // NOTE: The previous inline_data structure was fixed in the service layer, but 
-        // to be compatible with this multi-part request, we ensure the correct casing.
         const imageParts = [];
         for (const file of selectedFiles) {
           if (file.type.startsWith('image/')) {
@@ -358,7 +354,7 @@ REMEMBER: Be concise, accurate, and proactive in connecting the question to the 
                             : 'bg-white/95 text-gray-800 border border-gray-200/50 hover:shadow-xl transition-all duration-300'
                         }`}
                       >
-                        {/* FIX: Removed the problematic 'prose' div */}
+                        {/* FIX: Simplified rendering - relying on whitespace-pre-wrap for formatting */}
                         <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         
                         {message.attachments && message.attachments.length > 0 && (
