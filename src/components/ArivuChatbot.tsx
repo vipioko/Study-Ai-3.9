@@ -362,11 +362,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
                     
                     <div className={`max-w-[80%] ${message.sender === 'user' ? 'order-1' : 'order-2'}`}>
                       <div
-                        className={`p-3 rounded-2xl backdrop-blur-sm shadow-lg ${
-                          message.sender === 'user'
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white ml-auto hover:shadow-xl transition-all duration-300'
-                            : 'bg-white/95 text-gray-800 border border-gray-200/50 hover:shadow-xl transition-all duration-300'
-                        }`}
+                        className={`p-3 backdrop-blur-sm ${message.sender === 'user' ? 'chat-bubble-user ml-auto' : 'chat-bubble-ai'}`}
                       >
                         <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         
@@ -380,7 +376,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
                           </div>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1 px-1">
+                      <div className="chat-timestamp">
                         {message.timestamp.toLocaleTimeString()}
                       </div>
                     </div>
@@ -398,7 +394,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
                     <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center">
                       <Brain className="h-4 w-4 text-white" />
                     </div>
-                    <div className="bg-gray-100 p-3 rounded-2xl">
+                    <div className="chat-bubble-ai p-3">
                       <div className="flex gap-1">
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -442,7 +438,7 @@ Remember: Be proactive in connecting current questions to the user's study histo
 
             {/* Input Area */}
             <div className="border-t border-gray-200/50 p-4 bg-gradient-to-r from-blue-50/50 to-purple-50/50 backdrop-blur-sm">
-              <div className="flex gap-3">
+              <div className="chat-input-bar">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -452,16 +448,11 @@ Remember: Be proactive in connecting current questions to the user's study histo
                   className="hidden"
                 />
                 
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  size="sm"
-                  className="flex-shrink-0 btn-secondary"
-                >
+                <button onClick={() => fileInputRef.current?.click()} className="chat-action-btn" aria-label="Attach">
                   <Paperclip className="h-4 w-4" />
-                </Button>
+                </button>
                 
-                <Input
+                <input
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
@@ -469,17 +460,18 @@ Remember: Be proactive in connecting current questions to the user's study histo
                     ? "எதைப் பற்றி கேட்க விரும்புகிறீர்கள்?"
                     : "Ask me anything..."
                   }
-                  className="flex-1 input-elegant"
+                  className="chat-text-input"
                   disabled={isLoading}
                 />
                 
-                <Button
+                <button
                   onClick={sendMessage}
                   disabled={isLoading || (!inputMessage.trim() && selectedFiles.length === 0)}
-                  className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 flex-shrink-0 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="chat-action-btn bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  aria-label="Send"
                 >
                   <Send className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
             </div>
           </Card>
