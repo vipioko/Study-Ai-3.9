@@ -357,7 +357,8 @@ const StudyAssistant = () => {
         }
       }
       
-      let analysisResult;
+      let analysisResult: AnalysisResult;
+      
       if (analyzedPagesInRange.length > 0) {
         // Use existing analyses
         const combinedKeyPoints = analyzedPagesInRange.flatMap(p => p.keyPoints || []);
@@ -374,6 +375,12 @@ const StudyAssistant = () => {
       } else {
         // Analyze the content first
         const contentToAnalyze = extractPageRangeFromOcr(pdfFullText, pageRange.start, pageRange.end);
+        
+        // CRITICAL: Ensure text content is not empty before calling the service
+        if (!contentToAnalyze.trim()) {
+            throw new Error(`Pages ${pageRange.start} to ${pageRange.end} did not contain any readable text. Please try a smaller range.`);
+        }
+
         analysisResult = await analyzePdfContent(contentToAnalyze, outputLanguage);
       }
       
@@ -387,7 +394,8 @@ const StudyAssistant = () => {
       toast.success(`Quiz generated for pages ${pageRange.start} to ${pageRange.end}!`);
     } catch (error) {
       console.error("Question generation error:", error);
-      toast.error("Failed to generate questions. Please try again.");
+      // Display a more user-friendly error from the service
+      toast.error(`Failed to generate quiz: ${(error as Error).message.substring(0, 100)}...`);
     } finally {
       setIsGeneratingQuestions(false);
     }
@@ -608,14 +616,9 @@ const StudyAssistant = () => {
     );
   }
 
+  // === MAIN UPLOAD VIEW (Applied elegant classes) ===
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/10 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-secondary/20 to-primary/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-accent/10 to-primary/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '4s'}}></div>
-      </div>
+    <div className="app-hero-bg relative overflow-hidden">
       
       <div className="p-4 relative z-10">
       <div className="container mx-auto max-w-4xl px-2 sm:px-4">
@@ -624,7 +627,8 @@ const StudyAssistant = () => {
               <div className="p-3 md:p-4 bg-gradient-to-r from-primary to-primary-glow rounded-full shadow-2xl pulse-glow">
                 <Brain className="h-8 w-8 md:h-10 md:w-10 text-white" />
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold gradient-text">
+              {/* Use gradient-text for the elegant look */}
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold gradient-text">
                 Ram's AI
               </h1>
             </div>
@@ -633,7 +637,8 @@ const StudyAssistant = () => {
             </p>
           </div>
 
-        <Card className="glass-card p-4 sm:p-6 md:p-8 mb-6 md:mb-8 animate-fadeInScale hover-lift mx-2 sm:mx-0">
+        {/* Use elevated-card with hover-lift for a premium feel */}
+        <Card className="elevated-card p-4 sm:p-6 md:p-8 mb-6 md:mb-8 animate-fadeInScale hover-lift mx-2 sm:mx-0 shadow-elegant-lg">
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-4">
@@ -641,17 +646,11 @@ const StudyAssistant = () => {
                   <Settings className="h-4 w-4 inline mr-2" />
                   Difficulty Level
                 </label>
+                {/* Use input-elegant class */}
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value)}
-                  className="w-full appearance-none bg-white/95 backdrop-blur-sm border-2 border-gray-200 rounded-xl px-3 sm:px-4 py-3 text-sm md:text-base text-gray-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none transition-all duration-300 cursor-pointer"
-                  style={{
-                    backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
-                    backgroundPosition: "right 12px center",
-                    backgroundRepeat: "no-repeat",
-                    backgroundSize: "16px",
-                    paddingRight: "40px"
-                  }}
+                  className="input-elegant w-full px-3 sm:px-4 py-3 text-sm md:text-base cursor-pointer"
                 >
                   <option value="easy">🟢 Easy - Basic concepts</option>
                   <option value="medium">🟡 Medium - Standard level</option>
@@ -665,17 +664,11 @@ const StudyAssistant = () => {
                   <Languages className="h-4 w-4 inline mr-2" />
                   Output Language
                 </label>
+                {/* Use input-elegant class */}
                 <select
                   value={outputLanguage}
                   onChange={(e) => setOutputLanguage(e.target.value as "english" | "tamil")}
-                  className="w-full appearance-none bg-white/95 backdrop-blur-sm border-2 border-gray-200 rounded-xl px-3 sm:px-4 py-3 text-sm md:text-base text-gray-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none transition-all duration-300 cursor-pointer"
-                  style={{
-                    backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
-                    backgroundPosition: "right 12px center",
-                    backgroundRepeat: "no-repeat",
-                    backgroundSize: "16px",
-                    paddingRight: "40px"
-                  }}
+                  className="input-elegant w-full px-3 sm:px-4 py-3 text-sm md:text-base cursor-pointer"
                 >
                   <option value="english">🇬🇧 English</option>
                   <option value="tamil">🇮🇳 தமிழ் (Tamil)</option>
@@ -683,6 +676,7 @@ const StudyAssistant = () => {
               </div>
             </div>
 
+            {/* Use interactive-card for the upload area */}
             <div className="interactive-card p-4 sm:p-6 md:p-10 border-2 border-dashed border-border hover:border-primary transition-all duration-500 hover:bg-primary/5 group">
               <input
                 type="file"
@@ -708,44 +702,46 @@ const StudyAssistant = () => {
 
             {selectedFiles.length > 0 && (
               <div className="space-y-8 animate-fadeInUp">
-                <h3 className="font-semibold text-gray-800 text-base sm:text-lg">
+                <h3 className="font-semibold text-base sm:text-lg">
                   <span className="gradient-text">Selected Files ({selectedFiles.length})</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 stagger-animation">
                   {selectedFiles.slice(0, 6).map((file, index) => (
-                    <div key={index} className="glass-card p-6 hover-lift">
+                    // Use glass-card for the file preview
+                    <div key={index} className="glass-card p-4 hover-lift shadow-elegant">
                       <div className="flex items-center gap-3 mb-3">
                         {file.type.startsWith('image/') ? (
-                          <Image className="h-7 w-7 text-blue-600 animate-pulse" />
+                          <Image className="h-6 w-6 text-primary animate-pulse" />
                         ) : (
-                          <FileText className="h-7 w-7 text-red-600 animate-pulse" />
+                          <FileText className="h-6 w-6 text-destructive animate-pulse" />
                         )}
-                        <span className="text-sm sm:text-base font-semibold text-gray-700">
+                        <span className="text-sm sm:text-base font-semibold text-foreground">
                           {file.type.startsWith('image/') ? 'Image' : 'PDF'}
                         </span>
                       </div>
-                      <div className="text-sm text-gray-600 space-y-1">
+                      <div className="text-sm text-muted-foreground space-y-1">
                         <div className="font-medium truncate mb-1">{file.name}</div>
                         <div className="text-xs">({(file.size / 1024 / 1024).toFixed(2)} MB)</div>
                       </div>
                     </div>
                   ))}
                   {selectedFiles.length > 6 && (
-                    <div className="glass-card p-6 flex items-center justify-center text-gray-500">
+                    <div className="glass-card p-4 flex items-center justify-center text-muted-foreground shadow-elegant">
                       <span className="text-sm">+{selectedFiles.length - 6} more files</span>
                     </div>
                   )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 md:gap-6 pt-6 md:pt-8">
-                  <Button
+                  {/* Use btn-primary */}
+                  <button
                     onClick={analyzeFiles}
                     disabled={isAnalyzing}
-                    className="flex-1 btn-primary py-4 sm:py-6 md:py-8 text-base sm:text-lg md:text-xl font-bold"
+                    className="flex-1 btn-primary py-4 sm:py-6 text-base sm:text-lg md:text-xl font-bold"
                   >
                     {isAnalyzing ? (
                       <>
-                        <div className="animate-spin rounded-full h-5 w-5 md:h-6 md:w-6 border-b-2 border-white mr-2 md:mr-3"></div>
+                        <div className="animate-spin rounded-full h-5 w-5 md:h-6 md:w-6 border-b-2 border-primary-foreground mr-2 md:mr-3"></div>
                         Analyzing...
                       </>
                     ) : (
@@ -754,49 +750,51 @@ const StudyAssistant = () => {
                         Detailed Analysis
                       </>
                     )}
-                  </Button>
+                  </button>
 
-                  <Button
+                  {/* Custom secondary button with elegant gradient */}
+                  <button
                     onClick={startQuickAnalysis}
-                    className="flex-1 bg-gradient-to-r from-accent-success to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white py-4 sm:py-6 md:py-8 text-base sm:text-lg md:text-xl font-bold shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 border-0 rounded-2xl relative overflow-hidden group"
+                    // Use btn-primary for the rich button style, overriding the gradient for 'quick' action
+                    className="flex-1 btn-primary bg-gradient-to-r from-accent-success to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white py-4 sm:py-6 text-base sm:text-lg md:text-xl font-bold border-0 rounded-xl relative overflow-hidden group"
                   >
-                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2 md:mr-3 group-hover:rotate-12 transition-transform" />
+                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mr-2 md:mr-3 text-primary-foreground group-hover:rotate-12 transition-transform" />
                     Quick Quiz
-                  </Button>
+                  </button>
                 </div>
               </div>
             )}
           </div>
         </Card>
 
-        {/* Features Preview */}
+        {/* Features Preview - Use glass-card and hover-lift */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 stagger-animation mx-2 sm:mx-0">
-          <Card className="glass-card p-8 text-center hover-lift">
-            <div className="p-3 sm:p-4 bg-blue-100 rounded-full w-fit mx-auto mb-4 sm:mb-6 animate-bounceIn">
-              <FileText className="h-8 w-8 text-blue-600" />
+          <Card className="glass-card p-8 text-center hover-lift shadow-elegant">
+            <div className="p-3 sm:p-4 bg-secondary rounded-full w-fit mx-auto mb-4 sm:mb-6 animate-bounceIn">
+              <FileText className="h-8 w-8 text-secondary-foreground" />
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-3">Smart Analysis</h3>
-            <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
+            <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2 sm:mb-3">Smart Analysis</h3>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
               AI-powered analysis extracts key points and creates crisp, memorable study notes
             </p>
           </Card>
 
-          <Card className="glass-card p-8 text-center hover-lift">
-            <div className="p-3 sm:p-4 bg-purple-100 rounded-full w-fit mx-auto mb-4 sm:mb-6 animate-bounceIn" style={{animationDelay: '0.2s'}}>
-              <Brain className="h-8 w-8 text-purple-600" />
+          <Card className="glass-card p-8 text-center hover-lift shadow-elegant">
+            <div className="p-3 sm:p-4 bg-primary-glow/20 rounded-full w-fit mx-auto mb-4 sm:mb-6 animate-bounceIn" style={{animationDelay: '0.2s'}}>
+              <Brain className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-3">MCQ & Assertion Questions</h3>
-            <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
+            <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2 sm:mb-3">MCQ & Assertion Questions</h3>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
               Generate TNPSC-style multiple choice and assertion-reason questions for practice
             </p>
           </Card>
 
-          <Card className="glass-card p-8 text-center hover-lift">
-            <div className="p-3 sm:p-4 bg-green-100 rounded-full w-fit mx-auto mb-4 sm:mb-6 animate-bounceIn" style={{animationDelay: '0.4s'}}>
-              <Zap className="h-8 w-8 text-green-600" />
+          <Card className="glass-card p-8 text-center hover-lift shadow-elegant">
+            <div className="p-3 sm:p-4 bg-accent/30 rounded-full w-fit mx-auto mb-4 sm:mb-6 animate-bounceIn" style={{animationDelay: '0.4s'}}>
+              <Zap className="h-8 w-8 text-accent-success" />
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-3">Instant Results</h3>
-            <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
+            <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2 sm:mb-3">Instant Results</h3>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
               Get immediate feedback with detailed explanations and performance tracking
             </p>
           </Card>
