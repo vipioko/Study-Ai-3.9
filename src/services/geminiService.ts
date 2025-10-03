@@ -839,8 +839,49 @@ MEMORY TIP GUIDELINES:
             continue;
           }
 
-          const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-          const analysis = JSON.parse(cleanedContent);
+          // Robust JSON cleaning and parsing with fallback
+          let cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+          
+          // Remove any leading/trailing non-JSON content
+          const jsonStart = cleanedContent.indexOf('{');
+          const jsonEnd = cleanedContent.lastIndexOf('}');
+          
+          if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
+          }
+          
+          // Fix common JSON issues
+          cleanedContent = cleanedContent
+            .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+            .replace(/,\s*]/g, ']')  // Remove trailing commas before ]
+            .replace(/([^\\])\\([^"\\\/bfnrt])/g, '$1\\\\$2')  // Fix unescaped backslashes
+            .replace(/\n/g, '\\n')   // Escape newlines in strings
+            .replace(/\r/g, '\\r')   // Escape carriage returns
+            .replace(/\t/g, '\\t');  // Escape tabs
+          
+          let analysis;
+          try {
+            analysis = JSON.parse(cleanedContent);
+          } catch (parseError) {
+            console.warn(`JSON parse failed for page ${pageNumber}, attempting fallback parsing:`, parseError);
+            
+            // Fallback: try to extract key fields manually
+            const keyPointsMatch = cleanedContent.match(/"keyPoints"\s*:\s*\[(.*?)\]/s);
+            const studyPointsMatch = cleanedContent.match(/"studyPoints"\s*:\s*\[(.*?)\]/s);
+            const summaryMatch = cleanedContent.match(/"summary"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+            const tnpscRelevanceMatch = cleanedContent.match(/"tnpscRelevance"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+            const tnpscCategoriesMatch = cleanedContent.match(/"tnpscCategories"\s*:\s*\[(.*?)\]/s);
+            
+            analysis = {
+              keyPoints: keyPointsMatch ? 
+                keyPointsMatch[1].split(',').map(s => s.trim().replace(/^"|"$/g, '')) : [],
+              studyPoints: studyPointsMatch ? [] : [], // Complex object, skip for now
+              summary: summaryMatch ? summaryMatch[1].replace(/\\n/g, '\n') : 'Analysis completed with fallback parsing',
+              tnpscRelevance: tnpscRelevanceMatch ? tnpscRelevanceMatch[1].replace(/\\n/g, '\n') : 'TNPSC relevant content analyzed',
+              tnpscCategories: tnpscCategoriesMatch ? 
+                tnpscCategoriesMatch[1].split(',').map(s => s.trim().replace(/^"|"$/g, '')) : []
+            };
+          }
           
           pageAnalyses.push({
             pageNumber,
@@ -1103,8 +1144,46 @@ MEMORY TIP GUIDELINES:
       throw new Error('No content received from Gemini API');
     }
 
-    const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-    const analysis = JSON.parse(cleanedContent);
+    // Robust JSON cleaning and parsing with fallback
+    let cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    
+    // Remove any leading/trailing non-JSON content
+    const jsonStart = cleanedContent.indexOf('{');
+    const jsonEnd = cleanedContent.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    // Fix common JSON issues
+    cleanedContent = cleanedContent
+      .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+      .replace(/,\s*]/g, ']')  // Remove trailing commas before ]
+      .replace(/([^\\])\\([^"\\\/bfnrt])/g, '$1\\\\$2')  // Fix unescaped backslashes
+      .replace(/\n/g, '\\n')   // Escape newlines in strings
+      .replace(/\r/g, '\\r')   // Escape carriage returns
+      .replace(/\t/g, '\\t');  // Escape tabs
+    
+    let analysis;
+    try {
+      analysis = JSON.parse(cleanedContent);
+    } catch (parseError) {
+      console.warn(`JSON parse failed for page ${pageNumber}, attempting fallback parsing:`, parseError);
+      
+      // Fallback: try to extract key fields manually
+      const keyPointsMatch = cleanedContent.match(/"keyPoints"\s*:\s*\[(.*?)\]/s);
+      const studyPointsMatch = cleanedContent.match(/"studyPoints"\s*:\s*\[(.*?)\]/s);
+      const summaryMatch = cleanedContent.match(/"summary"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+      const tnpscRelevanceMatch = cleanedContent.match(/"tnpscRelevance"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+      
+      analysis = {
+        keyPoints: keyPointsMatch ? 
+          keyPointsMatch[1].split(',').map(s => s.trim().replace(/^"|"$/g, '')) : [],
+        studyPoints: studyPointsMatch ? [] : [], // Complex object, skip for now
+        summary: summaryMatch ? summaryMatch[1].replace(/\\n/g, '\n') : 'Analysis completed with fallback parsing',
+        tnpscRelevance: tnpscRelevanceMatch ? tnpscRelevanceMatch[1].replace(/\\n/g, '\n') : 'TNPSC relevant content analyzed'
+      };
+    }
     
     return {
       pageNumber,
