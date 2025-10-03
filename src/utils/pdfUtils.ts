@@ -1,4 +1,4 @@
-// src/utils/pdfUtils.ts - FINAL, BUILD-SAFE VERSION
+// src/utils/pdfUtils.ts - FINAL FIX: Simplified and Robust Multi-Page Image-to-PDF
 
 import jsPDF from 'jspdf';
 // We assume html2canvas is installed and used externally.
@@ -20,13 +20,12 @@ export interface PDFContent {
 
 
 // ========================================================================
-// 1. CORE LOGIC: IMAGE-TO-PDF (Updated from previous step)
+// 1. CORE LOGIC: IMAGE-TO-PDF (UPDATED FOR ROBUST MULTI-PAGE)
 // ========================================================================
-// NOTE: This function is the one StudyHistory.tsx will call after html2canvas.
 export const downloadImageAsPDF = async ({ title, base64Image }: ImageToPDFContent) => {
   const pdf = new jsPDF('p', 'mm', 'a4'); 
-  const imgWidth = 210; 
-  const pageHeight = 297; 
+  const imgWidth = 210; // A4 width in mm
+  const pageHeight = 297; // A4 height in mm
   
   const img = new Image();
   img.src = base64Image;
@@ -36,38 +35,33 @@ export const downloadImageAsPDF = async ({ title, base64Image }: ImageToPDFConte
   const imgActualWidth = img.naturalWidth;
   const imgActualHeight = img.naturalHeight;
 
+  // Calculate scaling factor to fit the image to the PDF page width (210mm)
   const ratio = imgWidth / imgActualWidth;
-  const newHeight = imgActualHeight * ratio;
+  const imgScaledHeight = imgActualHeight * ratio;
 
-  let heightLeft = newHeight;
+  let heightLeft = imgScaledHeight;
   let position = 0; 
+  let currentPage = 1;
 
-  while (heightLeft > -1) { 
-    if (position > 0) {
+  // The critical loop uses negative Y offset on the full image
+  while (heightLeft > 0) {
+    if (currentPage > 1) {
       pdf.addPage();
     }
-    
-    // Add the image slice to the PDF
+
+    // Add the image. The key is the NEGATIVE Y OFFSET (-position)
     pdf.addImage(
       base64Image, 
       'JPEG', 
       0, 
-      0, 
+      -position, // Use negative position to scroll the image up/down
       imgWidth, 
-      newHeight, 
-      undefined, 
-      'FAST',
-      0,
-      {
-        x: 0,
-        y: position * ratio,
-        width: imgWidth,
-        height: pageHeight
-      }
+      imgScaledHeight // Use the full scaled height
     );
 
     heightLeft -= pageHeight;
-    position += pageHeight;
+    position += pageHeight; // Increment position by one page height
+    currentPage++;
   }
 
   const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_image.pdf`;
@@ -76,9 +70,7 @@ export const downloadImageAsPDF = async ({ title, base64Image }: ImageToPDFConte
 
 
 // ========================================================================
-// 2. COMPATIBILITY STUB: OLD downloadPDF
-//    This stub is LEFT AS IS TO PREVENT THE BUILD CRASH.
-//    The component calling it MUST be fixed.
+// 2. COMPATIBILITY STUB: OLD downloadPDF (Unchanged)
 // ========================================================================
 export const downloadPDF = async (content: PDFContent) => {
     console.error("The old downloadPDF function is a stub. The component calling it MUST be fixed to use downloadImageAsPDF.");
