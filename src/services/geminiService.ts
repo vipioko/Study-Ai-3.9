@@ -18,74 +18,72 @@ const getApiUrl = (model: string) => {
 // ========================================================================
 // REUSABLE HELPER: Robust Gemini JSON Response Processing
 // ========================================================================
-const processGeminiJSONResponse = (data: any, isMultimodal: boolean = false): any => {
-  const candidates = data.candidates;
+const processGeminiJSONResponse = (data: any): any => {
+    const candidates = data.candidates;
 
-  if (!candidates || candidates.length === 0) {
-    const promptFeedback = data.promptFeedback;
-    let errorMessage = 'No content or candidates received from Gemini API.';
+    if (!candidates || candidates.length === 0) {
+        const promptFeedback = data.promptFeedback;
+        let errorMessage = 'No content or candidates received from Gemini API.';
 
-    if (promptFeedback) {
-      if (promptFeedback.blockReason === 'SAFETY') {
-        errorMessage = `Request blocked due to safety settings. Safety Ratings: ${JSON.stringify(promptFeedback.safetyRatings, null, 2)}`;
-      } else if (promptFeedback.blockReason === 'OTHER') {
-        errorMessage = `Request blocked due to policy reasons. Block Reason: ${promptFeedback.blockReason}`;
-      }
+        if (promptFeedback) {
+            if (promptFeedback.blockReason === 'SAFETY') {
+                errorMessage = `Request blocked due to safety settings. Safety Ratings: ${JSON.stringify(promptFeedback.safetyRatings, null, 2)}`;
+            } else if (promptFeedback.blockReason === 'OTHER') {
+                errorMessage = `Request blocked due to policy reasons. Block Reason: ${promptFeedback.blockReason}`;
+            }
+        }
+        
+        console.error('Gemini API returned no candidates or was blocked:', data);
+        throw new Error(errorMessage);
+    }
+
+    const candidate = candidates[0];
+    const content = candidate.content?.parts?.[0]?.text;
+    const finishReason = candidate.finishReason;
+
+    if (!content) {
+        if (finishReason === 'SAFETY') {
+            const safetyMessage = `Candidate blocked due to safety settings. Safety Ratings: ${JSON.stringify(candidate.safetyRatings, null, 2)}`;
+            console.error(safetyMessage, candidate.safetyRatings);
+            throw new Error(safetyMessage);
+        }
+        
+        console.error(`Gemini API returned no content. Finish Reason: ${finishReason}`, candidate);
+        throw new Error(`No final content received from Gemini API. Finish reason: ${finishReason || 'UNKNOWN'}`);
+    }
+
+    // Clean and parse the JSON response
+    let cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    
+    // Remove any leading/trailing non-JSON content
+    const jsonStart = cleanedContent.indexOf('{');
+    const jsonEnd = cleanedContent.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
+    } else if (cleanedContent.startsWith('[')) {
+        // Handle array response (like for questions)
+        const arrayEnd = cleanedContent.lastIndexOf(']');
+        if (arrayEnd !== -1) {
+            cleanedContent = cleanedContent.substring(0, arrayEnd + 1);
+        }
+    }
+
+    if ((!cleanedContent.startsWith('{') || !cleanedContent.endsWith('}')) && (!cleanedContent.startsWith('[') || !cleanedContent.endsWith(']'))) {
+        console.error('Raw content is not valid JSON:', cleanedContent);
+        throw new Error(`Gemini API returned non-JSON data. Output malformed (Finish Reason: ${finishReason || 'N/A'}): ${cleanedContent.substring(0, 200)}...`);
     }
     
-    console.error('Gemini API returned no candidates or was blocked:', data);
-    throw new Error(errorMessage);
-  }
-
-  const candidate = candidates[0];
-  const content = candidate.content?.parts?.[0]?.text;
-  const finishReason = candidate.finishReason;
-
-  if (!content) {
-    if (finishReason === 'SAFETY') {
-        const safetyMessage = `Candidate blocked due to safety settings. Safety Ratings: ${JSON.stringify(candidate.safetyRatings, null, 2)}`;
-        console.error(safetyMessage, candidate.safetyRatings);
-        throw new Error(safetyMessage);
+    try {
+        return JSON.parse(cleanedContent);
+    } catch (parseError) {
+        console.error('JSON Parse Failed:', parseError, cleanedContent.substring(0, 500));
+        throw new Error(`Failed to parse final JSON response. Output truncated or malformed (Finish Reason: ${finishReason || 'N/A'}).`);
     }
-    
-    console.error(`Gemini API returned no content. Finish Reason: ${finishReason}`, candidate);
-    throw new Error(`No final content received from Gemini API. Finish reason: ${finishReason || 'UNKNOWN'}`);
-  }
-
-  // Clean and parse the JSON response
-  let cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
-  
-  // Remove any leading/trailing non-JSON content
-  const jsonStart = cleanedContent.indexOf('{');
-  const jsonEnd = cleanedContent.lastIndexOf('}');
-  
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-    cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
-  } else if (cleanedContent.startsWith('[')) {
-    // Handle array response (like for questions)
-    const arrayEnd = cleanedContent.lastIndexOf(']');
-    if (arrayEnd !== -1) {
-        cleanedContent = cleanedContent.substring(0, arrayEnd + 1);
-    }
-  }
-
-  if ((!cleanedContent.startsWith('{') || !cleanedContent.endsWith('}')) && (!cleanedContent.startsWith('[') || !cleanedContent.endsWith(']'))) {
-      console.error('Raw content is not valid JSON:', cleanedContent);
-      throw new Error(`Gemini API returned non-JSON data. Output malformed (Finish Reason: ${finishReason || 'N/A'}): ${cleanedContent.substring(0, 200)}...`);
-  }
-  
-  try {
-    return JSON.parse(cleanedContent);
-  } catch (parseError) {
-    console.error('JSON Parse Failed:', parseError, cleanedContent.substring(0, 500));
-    throw new Error(`Failed to parse final JSON response. Output truncated or malformed (Finish Reason: ${finishReason || 'N/A'}).`);
-  }
 };
 
 
-// ========================================================================
-// INTERNAL: analyzeTextContent (Text-Only)
-// ========================================================================
+// New internal function to perform analysis on text content (Text-Only)
 const analyzeTextContent = async (textContent: string, outputLanguage: "english" | "tamil"): Promise<any> => {
   const languageInstruction = outputLanguage === "tamil" 
     ? "Please provide all responses in Tamil language. Use Tamil script for all content."
@@ -113,6 +111,7 @@ Please provide a comprehensive analysis in the following JSON format:
       "title": "Key point title (Very Concise)",
       "description": "Detailed description (Max 3 concise sentences)",
       "importance": "high/medium/low",
+      // FIX: Memory tip optimized for TNPSC review
       "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
     }
   ],
@@ -121,7 +120,14 @@ Please provide a comprehensive analysis in the following JSON format:
   "tnpscCategories": ["Category1", "Category2", ...],
   "difficulty": "easy/medium/hard"
 }
-... (rest of the prompt is unchanged) ...
+
+Focus on:
+- TNPSC Group 1, 2, 4 exam relevance
+- Extracting specific facts, figures, names, dates, and definitions
+- Make key points factual and specific from the actual content
+
+MEMORY TIP GUIDELINES:
+- **CRITICAL: The tip must synthesize the point into a very short, memorable TNPSC-relevant summary (keywords, dates, articles).**
 `;
 
   const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -146,14 +152,10 @@ Please provide a comprehensive analysis in the following JSON format:
   }
 
   const data = await response.json();
-  const result = processGeminiJSONResponse(data);
-  return result;
+  return processGeminiJSONResponse(data);
 };
 
 
-// ========================================================================
-// CORE FUNCTION: analyzeImage
-// ========================================================================
 export const analyzeImage = async (file: File, outputLanguage: "english" | "tamil" = "english"): Promise<AnalysisResult> => {
   const base64Image = await convertToBase64(file);
   
@@ -165,7 +167,44 @@ export const analyzeImage = async (file: File, outputLanguage: "english" | "tami
 
     const prompt = `
 Analyze this image for TNPSC (Tamil Nadu Public Service Commission) exam preparation.
-... (rest of the prompt is unchanged) ...
+
+${languageInstruction}
+
+Content: (The image)
+
+CRITICAL INSTRUCTIONS:
+- Extract ONLY specific, factual, and concrete information directly from the content
+- DO NOT include generic statements about importance or what needs to be studied
+- Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
+- Provide practical memory tips for each study point to help with retention
+- **VERY CRITICAL: All content, especially 'description' and 'memoryTip', must be concise to avoid token overflow.**
+- **Limit the total number of studyPoints to a maximum of 10.**
+
+Please provide a comprehensive analysis in the following JSON format:
+{
+  "mainTopic": "Main topic of the content",
+  "studyPoints": [
+    {
+      "title": "Key point title (Very Concise)",
+      "description": "Detailed description (Max 3 concise sentences)",
+      "importance": "high/medium/low",
+      // FIX: Memory tip optimized for TNPSC review
+      "memoryTip": "A single, highly useful, concise phrase or bulleted list of 2-3 critical keywords/facts from the point for rapid TNPSC review (e.g., '42 Amend-76, 51A, 10 duties')."
+    }
+  ],
+  "summary": "Overall summary of the content (Max 3 concise sentences)",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams (concise)",
+  "tnpscCategories": ["Category1", "Category2", ...],
+  "difficulty": "easy/medium/hard"
+}
+
+Focus on:
+- TNPSC Group 1, 2, 4 exam relevance
+- Extracting specific facts, figures, names, dates, and definitions
+- Make key points factual and specific from the actual content
+
+MEMORY TIP GUIDELINES:
+- **CRITICAL: The tip must synthesize the point into a very short, memorable TNPSC-relevant summary (keywords, dates, articles).**
 `;
 
     const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -174,11 +213,12 @@ Analyze this image for TNPSC (Tamil Nadu Public Service Commission) exam prepara
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // FIX: Consolidated structure for multimodal input
         contents: [
           { 
             parts: [
               { text: prompt },
-              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } }
+              { inlineData: { mime_type: file.type, data: base64Image.split(',')[1] } } // FIX: inlineData is now correctly nested in parts
             ]
           }
         ],
@@ -202,7 +242,7 @@ Analyze this image for TNPSC (Tamil Nadu Public Service Commission) exam prepara
     }
 
     const data = await response.json();
-    const result = processGeminiResponse(data); // Assuming processGeminiResponse handles multimodal in your original script
+    const result = processGeminiResponse(data);
     return result;
 
   } catch (error) {
@@ -225,22 +265,21 @@ Analyze this image for TNPSC (Tamil Nadu Public Service Commission) exam prepara
 
       } catch (fallbackError) {
         console.error('Error during OCR/Text Analysis Fallback:', fallbackError);
+        // If the fallback also fails, throw the original error or a combined one
         throw new Error(`Analysis failed after fallback: ${(fallbackError as Error).message}`);
       }
     }
     
+    // For all other errors (404, safety block, invalid payload, etc.), throw the original error
     console.error('Error analyzing image:', error);
     throw error;
   }
 };
 
-// ========================================================================
-// REUSABLE HELPER: processGeminiResponse (Kept the original name/logic for consistency)
-// NOTE: Assuming this is the existing helper that returns an AnalysisResult
-// ========================================================================
+// Helper function to process the model's structured JSON response
 const processGeminiResponse = (data: any): AnalysisResult => {
-    // Using the robust helper for parsing
-    const result = processGeminiJSONResponse(data, true);
+    // Use the robust processing function
+    const result = processGeminiJSONResponse(data);
     
     // CRITICAL: Generate a simple keyPoints array from the studyPoints titles/descriptions for AnalysisResult compatibility
     const generatedKeyPoints = (result.studyPoints || []).map((sp: any) => sp.title + (sp.description ? (": " + sp.description) : ""));
@@ -259,8 +298,98 @@ const processGeminiResponse = (data: any): AnalysisResult => {
 };
 
 
-// ... (extractRawTextFromImage and createEnrichmentPrompt are unchanged) ...
+// NEW FUNCTION: Extract raw text from image using Gemini
+export const extractRawTextFromImage = async (file: File): Promise<string> => {
+  try {
+    const base64Image = await convertToBase64(file);
 
+    const prompt = `Extract all text from this image. Provide only the raw, unformatted text content exactly as it appears. Do not add any formatting, analysis, or extra characters.`;
+
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        // FIX: Consolidated structure for multimodal input
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              },
+              {
+                inlineData: { // FIX: inlineData is correctly nested in parts
+                  mime_type: file.type,
+                  data: base64Image.split(',')[1]
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.1, // Lower temperature for more deterministic output
+          maxOutputTokens: 4096,
+          // No response_mime_type for plain text output
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
+    }
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!content) {
+      // Basic content check here, as it's not JSON constrained
+      const finishReason = data.candidates?.[0]?.finishReason;
+      throw new Error(`No content received from Gemini API during text extraction. Finish reason: ${finishReason || 'UNKNOWN'}`);
+    }
+
+    console.log('Raw OCR text extracted (first 200 chars):', content.substring(0, 200) + '...');
+    return content.trim();
+  } catch (error) {
+    console.error('Error extracting raw text from image:', error);
+    throw error;
+  }
+};
+
+
+const createEnrichmentPrompt = (question: any, outputLanguage: "english" | "tamil" = "english") => {
+  const languageInstruction = outputLanguage === "tamil" 
+    ? "Please provide all responses in Tamil language."
+    : "Please provide all responses in English language.";
+
+  return `
+You are enriching an extracted question from a TNPSC question paper. Your job is to add explanation and identify the TNPSC group.
+
+${languageInstruction}
+
+Question: ${question.question}
+Options: ${question.options?.join(', ') || 'N/A'}
+Answer: ${question.answer}
+
+Please provide enrichment in this JSON format:
+{
+  "explanation": "Brief explanation of why this answer is correct",
+  "tnpscGroup": "Group 1" | "Group 2" | "Group 4"
+}
+
+Focus on:
+- Providing a clear, concise explanation
+- Correctly identifying which TNPSC group this question belongs to
+- Keep explanations educational and helpful for exam preparation
+`;
+};
 
 // ========================================================================
 // INTERNAL FUNCTION: OCR TEXT TO STRUCTURED QUESTIONS
@@ -274,7 +403,32 @@ const extractQuestionsFromText = async (ocrText: string, outputLanguage: "englis
 You are a highly accurate question paper extractor and parser.
 Extract all questions, their options, and identify the correct answer key (A, B, C, or D) from the following raw OCR text.
 
-... (rest of the prompt is unchanged) ...
+${languageInstruction}
+
+OCR Text to Parse:
+---
+${ocrText}
+---
+
+CRITICAL INSTRUCTIONS:
+- You MUST return a JSON array containing ONLY the extracted question objects.
+- Do NOT add any extra commentary or text outside the JSON block.
+- For each question, infer the correct answer (A, B, C, or D) based on common knowledge/context.
+- You MUST provide a short explanation for the correct answer.
+- Assign a difficulty level and TNPSC Group based on the content.
+
+Return as a JSON array with this exact structure (max 15 questions):
+[
+  {
+    "question": "Question text here (both English and Tamil if available)",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": "A", // MUST be A, B, C, or D
+    "type": "mcq",
+    "difficulty": "medium",
+    "tnpscGroup": "Group 1",
+    "explanation": "Brief explanation of the answer"
+  }
+]
 `;
 
   const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -308,7 +462,7 @@ Extract all questions, their options, and identify the correct answer key (A, B,
 
 
 // ========================================================================
-// CORE FUNCTION: GENERATE QUESTIONS
+// CORE FUNCTION: GENERATE QUESTIONS (NOW INCLUDES EXTRACTION FALLBACK)
 // ========================================================================
 export const generateQuestions = async (
   analysisResults: AnalysisResult[],
@@ -319,7 +473,31 @@ export const generateQuestions = async (
   try {
     // --- PATH 1: "EXTRACT, THEN ENRICH" for Question Papers ---
     if (fullOcrText) {
-      // ... (Existing extraction and mapping logic is fine) ...
+      // STEP 1: PURE EXTRACTION (Attempt client-side first)
+      console.log("Starting Step 1: Extracting questions from OCR text (Client-side parser)...");
+      let extractedQuestions = await parseQuestionPaperOcr(fullOcrText);
+      console.log(`Extraction complete. Found ${extractedQuestions.length} questions.`);
+
+      if (!extractedQuestions || extractedQuestions.length === 0) {
+        // STEP 1b: FALLBACK EXTRACTION (Use Gemini for structured extraction)
+        console.warn("Client-side parser failed. Falling back to Gemini for structured question extraction.");
+        extractedQuestions = await extractQuestionsFromText(fullOcrText, outputLanguage);
+        console.log(`Gemini Extraction complete. Found ${extractedQuestions.length} questions.`);
+        
+        if (!extractedQuestions || extractedQuestions.length === 0) {
+            throw new Error("Extraction resulted in zero questions. The document might not be a question paper or the text is unreadable.");
+        }
+      }
+
+      // STEP 2: Enrichment is now done inside extractQuestionsFromText, so we just map the result
+      const enrichedQuestions = extractedQuestions.map(q => ({
+          ...q,
+          type: q.type || "mcq", 
+          difficulty: q.difficulty || "medium", 
+          explanation: q.explanation || "", 
+          tnpscGroup: q.tnpscGroup || "Group 1",
+      }));
+
 
       return {
         questions: enrichedQuestions,
@@ -331,7 +509,45 @@ export const generateQuestions = async (
     }
 
     // --- PATH 2: ORIGINAL FALLBACK LOGIC for generating questions from study materials ---
-    // ... (Existing combinedContent logic is fine) ...
+    console.log("No OCR text provided. Generating new questions from analysis results...");
+    const combinedContent = analysisResults.map(result => ({
+      keyPoints: result.keyPoints.join('\n'),
+      summary: result.summary,
+      tnpscRelevance: result.tnpscRelevance,
+    }));
+
+    const languageInstruction = outputLanguage === "tamil" 
+      ? "Please provide all questions and answers in Tamil language."
+      : "Please provide all questions and answers in English language.";
+
+    const generationPrompt = `
+Based on the following TNPSC study content, generate 15-20 comprehensive questions:
+
+Content Analysis:
+${combinedContent.map((content, index) => `
+Analysis ${index + 1}:
+Key Points: ${content.keyPoints}
+Summary: ${content.summary}
+TNPSC Relevance: ${content.tnpscRelevance}
+`).join('\n')}
+
+Difficulty Level: ${difficulty}
+${languageInstruction}
+
+Return as a JSON array with this exact structure:
+[
+  {
+    "question": "Question text here",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "answer": "A",
+    "type": "mcq",
+    "difficulty": "${difficulty}",
+    "tnpscGroup": "Group 1",
+    "explanation": "Brief explanation of the answer"
+  }
+]
+CRITICAL: The "answer" field MUST contain only the single capital letter of the correct option (A, B, C, or D).
+`;
 
     const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
       method: 'POST',
@@ -359,7 +575,7 @@ export const generateQuestions = async (
 
     const data = await response.json();
     const questions = processGeminiJSONResponse(data);
-
+    
     if (!Array.isArray(questions)) {
         throw new Error('Question generation failed to return a JSON array of questions.');
     }
@@ -386,12 +602,288 @@ export const generateQuestions = async (
 };
 
 
-// ... (generatePageAnalysis and analyzePdfContentComprehensive are largely unchanged, but should use processGeminiJSONResponse) ...
+export const generatePageAnalysis = async (
+  file: File,
+  pageNumber: number,
+  outputLanguage: "english" | "tamil" = "english"
+): Promise<{
+  page: number;
+  keyPoints: string[];
+  studyPoints: Array<{
+    title: string;
+    description: string;
+    importance: "high" | "medium" | "low";
+    memoryTip: string;
+  }>;
+  summary: string;
+  tnpscRelevance: string;
+}> => {
+  try {
+    const textContent = await extractTextFromPdfPage(file, pageNumber);
+    
+    if (!textContent.trim()) {
+      throw new Error('No text content found on this page');
+    }
 
+    const languageInstruction = outputLanguage === "tamil" 
+      ? "Please provide all responses in Tamil language."
+      : "Please provide all responses in English language.";
 
-// ========================================================================
-// CORE FUNCTION: analyzePdfContent (The main target of the fix)
-// ========================================================================
+    const prompt = `
+Analyze this PDF page content for TNPSC exam preparation:
+
+${languageInstruction}
+
+Content: ${textContent}
+
+Please provide analysis in JSON format:
+{
+CRITICAL INSTRUCTIONS:
+- Extract ONLY specific, factual, and concrete information directly from the content
+- DO NOT include generic statements about importance or what needs to be studied
+- Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
+- Provide practical memory tips for each study point to help with retention
+
+  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
+  "summary": "Brief summary of the page content",
+  "importance": "high/medium/low",
+  "tnpscRelevance": "How this content relates to TNPSC exams",
+  "studyPoints": [
+    {
+      "title": "Study point title",
+      "description": "Detailed description",
+      "importance": "high/medium/low",
+      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
+    }
+  ]
+}
+
+Focus on:
+- TNPSC exam relevance
+- Extracting specific facts, names, dates, and concrete information
+- Key information for study
+- Make key points factual and specific from the actual content
+`;
+
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1500,
+          response_mime_type: "application/json",
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
+    }
+
+    const data = await response.json();
+    const analysis = processGeminiJSONResponse(data);
+
+    return {
+      page: pageNumber,
+      keyPoints: analysis.keyPoints || [],
+      studyPoints: analysis.studyPoints || [],
+      summary: analysis.summary || '',
+      importance: analysis.importance || 'medium',
+      tnpscRelevance: analysis.tnpscRelevance || ''
+    };
+  } catch (error) {
+    console.error('Error analyzing page:', error);
+    throw error;
+  }
+};
+
+export const analyzePdfContentComprehensive = async (
+  textContent: string,
+  outputLanguage: "english" | "tamil" = "english"
+): Promise<{
+  pageAnalyses: Array<{
+    pageNumber: number;
+    keyPoints: string[];
+    studyPoints: Array<{
+      title: string;
+      description: string;
+      importance: "high" | "medium" | "low";
+      tnpscRelevance: string;
+    }>;
+    summary: string;
+    tnpscRelevance: string;
+  }>;
+  overallSummary: string;
+  totalKeyPoints: string[];
+  tnpscCategories: string[];
+}> => {
+  try {
+    const pageAnalyses = [];
+    const allKeyPoints: string[] = [];
+    const allCategories: string[] = [];
+    
+    // Extract individual pages from the OCR text
+    const pageRegex = /==Start of OCR for page (\d+)==([\s\S]*?)==End of OCR for page \1==/g;
+    const pageMatches = Array.from(textContent.matchAll(pageRegex));
+    
+    console.log(`Found ${pageMatches.length} pages to analyze`);
+    
+    // Process pages in batches to avoid API limits
+    const batchSize = 5;
+    for (let i = 0; i < pageMatches.length; i += batchSize) {
+      const batch = pageMatches.slice(i, i + batchSize);
+      
+      for (const match of batch) {
+        const pageNumber = parseInt(match[1], 10);
+        const pageContent = match[2].trim();
+        
+        if (pageContent.length < 50) continue; // Skip pages with minimal content
+        
+        const languageInstruction = outputLanguage === "tamil" 
+          ? "Please provide all responses in Tamil language."
+          : "Please provide all responses in English language.";
+
+        const prompt = `
+Analyze this PDF page content for TNPSC exam preparation:
+
+${languageInstruction}
+
+Page ${pageNumber} Content: ${pageContent.substring(0, 4000)}
+
+Please provide analysis in JSON format:
+{
+CRITICAL INSTRUCTIONS:
+- Extract ONLY specific, factual, and concrete information directly from the content
+- DO NOT include generic statements about importance or what needs to be studied
+- Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
+- Provide practical memory tips for each study point to help with retention
+
+CRITICAL INSTRUCTIONS:
+- Extract ONLY specific, factual, and concrete information directly from the content
+- DO NOT include generic statements about importance or what needs to be studied
+- Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
+- Provide practical memory tips for each study point to help with retention
+
+  "keyPoints": ["Short crisp key point 1", "Short crisp key point 2", "Short crisp key point 3", "Short crisp key point 4", "Short crisp key point 5"],
+  "studyPoints": [
+    {
+      "title": "Study point title",
+      "description": "Detailed description",
+      "importance": "high/medium/low",
+          "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
+    }
+  ],
+  "summary": "Brief summary of the page content",
+  "tnpscRelevance": "How this content relates to TNPSC exams",
+  "tnpscCategories": ["Category1", "Category2"]
+}
+
+Focus on:
+- Extract at least 5 short crisp key points per page for easy memorization
+- TNPSC exam relevance
+- Important facts and concepts
+- Key information for study
+- Provide excellent memory tips for each study point
+
+MEMORY TIP GUIDELINES:
+- Use acronyms, rhymes, visual imagery, or story-based associations
+- Connect facts to familiar concepts or create memorable patterns
+- Use number patterns, word associations, or logical sequences
+- Make tips fun, quirky, and unforgettable
+`;
+
+        try {
+          const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: prompt
+                    }
+                  ]
+                }
+              ],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2000,
+                response_mime_type: "application/json",
+              }
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Failed to analyze page ${pageNumber}:`, errorText);
+
+            if (response.status === 404) {
+              console.error(`Model not found for page ${pageNumber}. Using primary model: '${API_CONFIG.primaryModel}'`);
+            }
+
+            continue;
+          }
+
+          const data = await response.json();
+          const analysis = processGeminiJSONResponse(data);
+          
+          pageAnalyses.push({
+            pageNumber,
+            keyPoints: analysis.keyPoints || [],
+            studyPoints: analysis.studyPoints || [],
+            summary: analysis.summary || '',
+            tnpscRelevance: analysis.tnpscRelevance || ''
+          });
+          
+          allKeyPoints.push(...(analysis.keyPoints || []));
+          allCategories.push(...(analysis.tnpscCategories || []));
+          
+        } catch (error) {
+          console.error(`Error analyzing page ${pageNumber}:`, error);
+        }
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    // Generate overall summary
+    const overallSummary = `Comprehensive analysis of ${pageAnalyses.length} pages with ${allKeyPoints.length} total key points identified.`;
+    
+    return {
+      pageAnalyses,
+      overallSummary,
+      totalKeyPoints: allKeyPoints,
+      tnpscCategories: [...new Set(allCategories)]
+    };
+  } catch (error) {
+    console.error('Error in comprehensive PDF analysis:', error);
+    throw error;
+  }
+};
+
 export const analyzePdfContent = async (
   textContent: string,
   outputLanguage: "english" | "tamil" = "english"
@@ -403,7 +895,50 @@ export const analyzePdfContent = async (
 
     const prompt = `
 Analyze this PDF text content for TNPSC (Tamil Nadu Public Service Commission) exam preparation:
-... (rest of the prompt is unchanged) ...
+
+${languageInstruction}
+
+Content: ${textContent.substring(0, 8000)}
+
+Please provide a comprehensive analysis in the following JSON format:
+{
+CRITICAL INSTRUCTIONS:
+- Extract ONLY specific, factual, and concrete information directly from the content
+- DO NOT include generic statements about importance or what needs to be studied
+- Focus on actual facts: names, dates, events, definitions, processes, figures, laws, etc.
+- Provide practical memory tips for each study point to help with retention
+
+  "mainTopic": "Main topic of the content",
+  "studyPoints": [
+    {
+      "title": "Key point title",
+      "description": "Detailed description",
+      "importance": "high/medium/low",
+      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
+    }
+  ],
+  "keyPoints": ["Specific factual point 1", "Specific factual point 2", ...],
+  "summary": "Overall summary of the content",
+  "tnpscRelevance": "How this content is relevant for TNPSC exams",
+  "tnpscCategories": ["Category1", "Category2", ...],
+  "difficulty": "easy/medium/hard"
+}
+
+Focus on:
+- TNPSC Group 1, 2, 4 exam relevance
+- Extracting specific facts, figures, names, dates, and definitions
+- Important dates, names, places
+- Conceptual understanding
+- Application in exam context
+- Make key points factual and specific from the actual content
+- Provide creative memory tips using mnemonics, associations, or patterns
+
+MEMORY TIP GUIDELINES:
+- Use acronyms, rhymes, visual imagery, or story-based associations
+- Connect facts to familiar concepts or create memorable patterns
+- Use number patterns, word associations, or logical sequences
+- Make tips fun, quirky, and unforgettable
+- Examples: "Remember VIBGYOR for rainbow colors" or "My Very Educated Mother Just Served Us Nachos for planets"
 `;
 
     const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
@@ -441,7 +976,6 @@ Analyze this PDF text content for TNPSC (Tamil Nadu Public Service Commission) e
     }
 
     const data = await response.json();
-    // Use the robust processing helper
     const result = processGeminiJSONResponse(data);
     
     return {
@@ -449,9 +983,7 @@ Analyze this PDF text content for TNPSC (Tamil Nadu Public Service Commission) e
       summary: result.summary || '',
       tnpscRelevance: result.tnpscRelevance || '',
       studyPoints: result.studyPoints || [],
-      tnpscCategories: result.tnpscCategories || [],
-      mainTopic: result.mainTopic || '',
-      language: outputLanguage,
+      tnpscCategories: result.tnpscCategories || []
     };
   } catch (error) {
     console.error('Error analyzing PDF content:', error);
@@ -459,5 +991,157 @@ Analyze this PDF text content for TNPSC (Tamil Nadu Public Service Commission) e
   }
 };
 
+export const analyzeIndividualPage = async (
+  textContent: string,
+  pageNumber: number,
+  outputLanguage: "english" | "tamil" = "english"
+): Promise<{
+  pageNumber: number;
+  keyPoints: string[];
+  studyPoints: Array<{
+    title: string;
+    description: string;
+    importance: "high" | "medium" | "low";
+    memoryTip: string;
+  }>;
+  summary: string;
+  tnpscRelevance: string;
+}> => {
+  try {
+    const languageInstruction = outputLanguage === "tamil" 
+      ? "Please provide all responses in Tamil language."
+      : "Please provide all responses in English language.";
 
-// ... (analyzeIndividualPage and other functions are largely unchanged) ...
+    const prompt = `
+Analyze this individual PDF page content for TNPSC exam preparation:
+
+${languageInstruction}
+
+Page ${pageNumber} Content: ${textContent.substring(0, 4000)}
+
+Please provide detailed analysis in JSON format:
+{
+  "keyPoints": ["Specific factual point 1", "Specific factual point 2", "Specific factual point 3", "Specific factual point 4", "Specific factual point 5", "Specific factual point 6", "Specific factual point 7", "Specific factual point 8"],
+  "studyPoints": [
+    {
+      "title": "Study point title",
+      "description": "Detailed description",
+      "importance": "high/medium/low",
+      "memoryTip": "Creative and memorable tip using mnemonics, visual associations, stories, or patterns"
+    }
+  ],
+  "summary": "Brief summary of the page content",
+  "tnpscRelevance": "How this content relates to TNPSC exams"
+}
+
+Focus on:
+- Extract at least 8 specific factual key points per page from the actual content
+- Detailed study points with TNPSC relevance
+- Specific facts, names, dates, and concrete information
+- Key information for study
+- Make key points factual and specific from the actual content
+- Provide excellent memory tips for each study point
+
+MEMORY TIP GUIDELINES:
+- Use acronyms, rhymes, visual imagery, or story-based associations
+- Connect facts to familiar concepts or create memorable patterns
+- Use number patterns, word associations, or logical sequences
+- Make tips fun, quirky, and unforgettable
+- Definitions and explanations
+- Statistical data and figures
+- Historical context and significance
+- Provide creative memory tips using mnemonics, associations, or patterns
+
+MEMORY TIP GUIDELINES:
+- Use acronyms, rhymes, visual imagery, or story-based associations
+- Connect facts to familiar concepts or create memorable patterns
+- Use number patterns, word associations, or logical sequences
+- Make tips fun, quirky, and unforgettable
+- Examples: "Remember VIBGYOR for rainbow colors" or "My Very Educated Mother Just Served Us Nachos for planets"
+`;
+
+    const response = await fetch(getApiUrl(API_CONFIG.primaryModel), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 3000,
+          response_mime_type: "application/json",
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+
+      if (response.status === 404) {
+        throw new Error(`Model not found. The API model '${API_CONFIG.primaryModel}' is not available. Please check your API configuration or try updating the app.`);
+      }
+
+      throw new Error(`Gemini API error (${response.status}): ${errorText.substring(0, 200)}...`);
+    }
+
+    const data = await response.json();
+    const analysis = processGeminiJSONResponse(data);
+    
+    return {
+      pageNumber,
+      keyPoints: analysis.keyPoints || [],
+      studyPoints: analysis.studyPoints || [],
+      summary: analysis.summary || '',
+      tnpscRelevance: analysis.tnpscRelevance || ''
+    };
+  } catch (error) {
+    console.error(`Error analyzing page ${pageNumber}:`, error);
+    throw error;
+  }
+};
+
+const convertToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
+export const analyzeMultipleImages = async (
+  files: File[],
+  difficulty: string = "medium",
+  outputLanguage: "english" | "tamil" = "english"
+): Promise<QuestionResult> => {
+  try {
+    const analysisResults: AnalysisResult[] = [];
+    
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        const result = await analyzeImage(file, outputLanguage);
+        analysisResults.push(result);
+      }
+    }
+    
+    if (analysisResults.length === 0) {
+      throw new Error('No valid images found for analysis');
+    }
+    
+    const questionResult = await generateQuestions(analysisResults, difficulty, outputLanguage);
+    return questionResult;
+  } catch (error) {
+    console.error('Error in analyzeMultipleImages:', error);
+    throw error;
+  }
+};
